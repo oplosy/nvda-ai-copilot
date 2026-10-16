@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "NVDA AI Copilot",
+  "version": "0.1.0",
+  "description": "Gives the NVDA AI Copilot coordinator grounded access to page elements.",
+  "permissions": ["nativeMessaging"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["grounding.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

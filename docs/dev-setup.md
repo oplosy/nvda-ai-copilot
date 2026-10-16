@@ -1,20 +1,36 @@
-# Dev setup: grounding walking skeleton
+# Dev setup
 
-Pressing **NVDA+Alt+Shift+L** in Chrome browse mode maps the navigator object to an extension
-element ID (`e_N`) and speaks the result. No LLM yet.
+In Chrome browse mode:
+
+- **NVDA+Alt+Shift+E**: explain the navigator object. The element is grounded first, then the
+  coordinator sends its value-free DOM description and a masked screenshot crop to Claude
+  (`claude-opus-5-5`, effort `low`). The answer is spoken as `AI yorumu: …`.
+- **NVDA+Alt+Shift+L**: grounding only (debug). Speaks the extension element ID (`e_N`).
 
 Flow: NVDA add-on → 127.0.0.1 (token from session file) → coordinator → native messaging →
 extension service worker → content script of the active tab. If the bounding box is ambiguous,
 the coordinator marks the candidates with `nvai-<nonce>-e_N` classes, the add-on polls the IA2
 `class` attribute and asks again with the nonce, and the markers are removed.
 
+Privacy: the extension never reads field values; password/OTP/card fields are painted black in
+the screenshot; the coordinator drops any `value` keys and masks Luhn-valid card numbers in text
+before the request leaves the machine (`coordinator/privacy.py`). Page data is sent to the model
+as untrusted data inside `<page_data>`.
+
 ## One-time setup
 
-Requires Python 3.10+ on `PATH` (Chrome starts the coordinator through `coordinator/run_host.bat`).
+1. Coordinator environment (Python 3.10+):
 
-1. Chrome → `chrome://extensions` → Developer mode → *Load unpacked* → select `extension/`.
+   ```powershell
+   cd coordinator; python -m venv .venv; .venv\Scripts\python -m pip install -r requirements.txt
+   ```
+
+2. API key: set `ANTHROPIC_API_KEY` as a **user** environment variable (System → Environment
+   Variables), then restart Chrome fully. Chrome starts the coordinator, so the coordinator only
+   sees variables Chrome was started with.
+3. Chrome → `chrome://extensions` → Developer mode → *Load unpacked* → select `extension/`.
    Copy the extension ID.
-2. Register the native host:
+4. Register the native host:
 
    ```powershell
    python coordinator\install_host.py <extension-id>
@@ -22,27 +38,27 @@ Requires Python 3.10+ on `PATH` (Chrome starts the coordinator through `coordina
 
    This writes `coordinator/com.nvda_ai_copilot.coordinator.json` and the key
    `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.nvda_ai_copilot.coordinator`.
-3. Reload the extension (or restart Chrome). Reload any tab that was open before the extension.
-4. NVDA: with scratchpad loading enabled (see `docs/spike-dom-mapping.md`), copy
+5. Reload the extension (or restart Chrome). Reload any tab that was open before the extension.
+6. NVDA: with scratchpad loading enabled (see `docs/spike-dom-mapping.md`), copy
    `nvda-addon/globalPlugins/nvdaAiCopilot.py` to `%APPDATA%\nvda\scratchpad\globalPlugins\`
    and reload plugins (NVDA+Ctrl+F3).
 
 ## Checks
 
 - Coordinator running: `%LOCALAPPDATA%\nvda-ai-copilot\session.json` exists while Chrome is open.
-- Coordinator log: `%LOCALAPPDATA%\nvda-ai-copilot\coordinator.log` (one `locate` line per request).
+- Coordinator log: `%LOCALAPPDATA%\nvda-ai-copilot\coordinator.log` (`locate` and `explain` lines).
 - Extension errors: `chrome://extensions` → NVDA AI Copilot → *service worker* → Console.
 - NVDA log: lines starting with `nvdaAiCopilot:`.
 
 Bring back the NVDA log lines and the matching `coordinator.log` lines for each test case A–E in
-`docs/spike-dom-mapping.md`.
+`docs/spike-dom-mapping.md`, plus a few NVDA+Alt+Shift+E answers on real sites.
 
 ## Tests
 
 ```powershell
-cd coordinator; python -m unittest
+cd coordinator; .venv\Scripts\python -m unittest
 ```
 
 ```powershell
-node --test extension/grounding.test.js
+node --test extension/grounding.test.js extension/context.test.js
 ```

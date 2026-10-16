@@ -15,8 +15,10 @@ import sys
 import threading
 from pathlib import Path
 
+import llm
 import native
 from grounding import resolve
+from privacy import redact
 
 DATA_DIR = Path(os.environ["LOCALAPPDATA"]) / "nvda-ai-copilot"
 # shortcut: one session file per user, so the last started Chrome profile wins; key by profile if needed.
@@ -67,20 +69,34 @@ class Extension:
 
 
 class Coordinator:
-	def __init__(self, ask_extension):
+	def __init__(self, ask_extension, explain=None):
 		self.ask = ask_extension
+		self.explain_fn = explain or (lambda ctx, shot: llm.explain(llm.default_client(), ctx, shot))
 		self.pending = None  # (nonce, snapshot) of the marking round the add-on is polling
 
 	def handle(self, req):
-		if req.get("type") != "locate" or not isinstance(req.get("nav"), dict):
-			return {"status": "error", "message": "bad request"}
+		kind = req.get("type")
 		try:
-			return self.locate(req["nav"], req.get("nonce"))
-		except ExtensionError as e:
+			if kind == "locate" and isinstance(req.get("nav"), dict):
+				return self.locate(req["nav"], req.get("nonce"))
+			if kind == "explain" and isinstance(req.get("elementId"), str):
+				return self.explain(req["elementId"])
+			return {"status": "error", "message": "bad request"}
+		except (ExtensionError, llm.LLMError) as e:
 			return {"status": "error", "message": str(e)}
 		except (KeyError, TypeError, ValueError) as e:
-			log.exception("locate failed")
+			log.exception("%s failed", kind)
 			return {"status": "error", "message": f"bad data: {e}"}
+
+	def explain(self, element_id):
+		ctx = self.ask({"type": "context", "elementId": element_id})
+		if ctx.get("screenshotError"):
+			log.warning("screenshot failed: %s", ctx["screenshotError"])
+		# Only these keys may reach the model; redact() is the last filter before it.
+		data = redact({"page": ctx["page"], "element": ctx["element"]})
+		text = self.explain_fn(data, ctx.get("screenshot"))
+		log.info("explain %s (screenshot=%s) -> %r", element_id, bool(ctx.get("screenshot")), text)
+		return {"status": "explained", "elementId": element_id, "text": text}
 
 	def locate(self, nav, nonce=None):
 		pending, self.pending = self.pending, None

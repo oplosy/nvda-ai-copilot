@@ -77,8 +77,8 @@ class CoordinatorExplainTest(unittest.TestCase):
 	def test_only_redacted_page_and_element_reach_the_model(self):
 		seen = {}
 
-		def fake_explain(data, shot):
-			seen.update(data=data, shot=shot)
+		def fake_explain(data, shot, task):
+			seen.update(data=data, shot=shot, task=task)
 			return "Sepete ekle düğmesi."
 
 		c = Coordinator(lambda msg: dict(CONTEXT), explain=fake_explain)
@@ -90,8 +90,35 @@ class CoordinatorExplainTest(unittest.TestCase):
 		self.assertNotIn("4111", dumped)
 		self.assertEqual(seen["shot"], "iVBOR")
 
+	def test_summarize_sends_only_redacted_page_and_outline(self):
+		outline_ctx = {
+			"page": {"origin": "https://shop.example", "title": "Sepet"},
+			"outline": {"mainText": "Kart 4111 1111 1111 1111", "controls": [{"name": "Öde", "value": "x"}]},
+			"rect": [0, 0, 100, 100],
+			"screenshot": "iVBOR",
+		}
+		seen = {}
+
+		def fake(data, shot, task):
+			seen.update(data=data, task=task)
+			return "Bir sepet sayfası."
+
+		r = Coordinator(lambda msg: dict(outline_ctx), explain=fake).handle({"type": "summarize"})
+		self.assertEqual(r, {"status": "explained", "text": "Bir sepet sayfası."})
+		self.assertEqual((set(seen["data"]), seen["task"]), ({"page", "outline"}, "summarize"))
+		dumped = json.dumps(seen["data"], ensure_ascii=False)
+		self.assertNotIn("4111", dumped)
+		self.assertNotIn('"value"', dumped)
+
+	def test_summarize_prompt_differs_from_explain(self):
+		s = llm.build_request({}, None, "summarize")
+		e = llm.build_request({}, None)
+		self.assertNotEqual(s["system"], e["system"])
+		self.assertIn("untrusted", s["system"])
+		self.assertTrue(s["messages"][0]["content"][-1]["text"].endswith("Bu sayfada ne var?"))
+
 	def test_llm_error_is_reported(self):
-		def failing(data, shot):
+		def failing(data, shot, task):
 			raise llm.LLMError("anahtar yok")
 
 		c = Coordinator(lambda msg: dict(CONTEXT), explain=failing)

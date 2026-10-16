@@ -71,7 +71,8 @@ class Extension:
 class Coordinator:
 	def __init__(self, ask_extension, explain=None):
 		self.ask = ask_extension
-		self.explain_fn = explain or (lambda ctx, shot: llm.explain(llm.default_client(), ctx, shot))
+		# explain(data, screenshot, task) -> spoken text
+		self.explain_fn = explain or (lambda ctx, shot, task: llm.explain(llm.default_client(), ctx, shot, task))
 		self.pending = None  # (nonce, snapshot) of the marking round the add-on is polling
 
 	def handle(self, req):
@@ -81,6 +82,8 @@ class Coordinator:
 				return self.locate(req["nav"], req.get("nonce"))
 			if kind == "explain" and isinstance(req.get("elementId"), str):
 				return self.explain(req["elementId"])
+			if kind == "summarize":
+				return self.summarize()
 			return {"status": "error", "message": "bad request"}
 		except (ExtensionError, llm.LLMError) as e:
 			return {"status": "error", "message": str(e)}
@@ -90,15 +93,23 @@ class Coordinator:
 
 	def explain(self, element_id):
 		ctx = self.ask({"type": "context", "elementId": element_id})
+		text = self._ask_model(ctx, "element", "explain")
+		return {"status": "explained", "elementId": element_id, "text": text}
+
+	def summarize(self):
+		ctx = self.ask({"type": "outline"})
+		return {"status": "explained", "text": self._ask_model(ctx, "outline", "summarize")}
+
+	def _ask_model(self, ctx, key, task):
 		if ctx.get("screenshotError"):
 			log.warning("screenshot failed: %s", ctx["screenshotError"])
 		# Only these keys may reach the model; redact() is the last filter before it.
-		data = redact({"page": ctx["page"], "element": ctx["element"]})
+		data = redact({"page": ctx["page"], key: ctx[key]})
 		shot = ctx.get("screenshot")
-		log.info("explain %s: screenshot=%s chars, element=%s", element_id, len(shot or ""), data["element"].get("tag"))
-		text = self.explain_fn(data, shot)
-		log.info("explain %s -> %r", element_id, text)
-		return {"status": "explained", "elementId": element_id, "text": text}
+		log.info("%s: screenshot=%s chars, data=%s chars", task, len(shot or ""), len(json.dumps(data)))
+		text = self.explain_fn(data, shot, task)
+		log.info("%s -> %r", task, text)
+		return text
 
 	def locate(self, nav, nonce=None):
 		pending, self.pending = self.pending, None

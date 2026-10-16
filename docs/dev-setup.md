@@ -5,7 +5,13 @@ In Chrome browse mode:
 - **NVDA+Alt+Shift+E**: explain the navigator object. The element is grounded first, then the
   coordinator sends its value-free DOM description and a masked screenshot crop to Claude
   (`claude-opus-5-5`, effort `low`). The answer is spoken as `AI yorumu: …`.
+- **NVDA+Alt+Shift+P**: summarize the page. The extension sends a value-free outline (headings,
+  landmarks, alerts, controls with names, start of the main text) and a masked screenshot of the
+  viewport. No grounding needed.
 - **NVDA+Alt+Shift+L**: grounding only (debug). Speaks the extension element ID (`e_N`).
+
+The extension talks to the active tab of the last focused Chrome window. Any page load wakes the
+service worker and reconnects the coordinator if it was stopped.
 
 Flow: NVDA add-on → 127.0.0.1 (token from session file) → coordinator → native messaging →
 extension service worker → content script of the active tab. If the bounding box is ambiguous,

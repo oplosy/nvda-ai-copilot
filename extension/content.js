@@ -26,6 +26,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       viewport: [innerWidth, innerHeight],
       sensitiveRects: sensitiveRects(all),
     });
+  } else if (msg.type === 'outline') {
+    sendResponse({
+      page: { origin: location.origin, title: clip(document.title, 150) },
+      outline: pageOutline(document),
+      rect: [0, 0, innerWidth, innerHeight], // screenshot the whole viewport
+      viewport: [innerWidth, innerHeight],
+      sensitiveRects: sensitiveRects(all),
+    });
   } else {
     sendResponse({ error: `unknown request type: ${msg.type}` });
   }

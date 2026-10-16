@@ -71,8 +71,13 @@ def _call(msg, timeout=REQUEST_TIMEOUT_S):
 
 
 def _explainMatched(located):
+	_askModel({"type": "explain", "elementId": located["elementId"]})
+
+
+def _askModel(msg):
+	"""Worker thread: asks the coordinator for model output and speaks it."""
 	_onMain(ui.message, "Copilot: AI'ya soruluyor")
-	reply = _call({"type": "explain", "elementId": located["elementId"]}, EXPLAIN_TIMEOUT_S)
+	reply = _call(msg, EXPLAIN_TIMEOUT_S)
 	if reply is None:
 		return
 	if reply.get("status") == "explained":
@@ -108,6 +113,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		obj = _webNavigator()
 		if obj:
 			self._locate(obj, {"type": "locate", "nav": _navContext(obj)}, _explainMatched)
+
+	@script(description="NVDA AI Copilot: summarize the current web page with AI", gesture="kb:NVDA+alt+shift+p")
+	def script_summarize(self, gesture):
+		if api.getFocusObject().appModule.appName != "chrome":
+			ui.message("Copilot: odak Chrome'da değil")
+			return
+		threading.Thread(target=_askModel, args=({"type": "summarize"},), daemon=True).start()
 
 	@script(description="NVDA AI Copilot: locate navigator object in the page (debug)", gesture="kb:NVDA+alt+shift+l")
 	def script_locate(self, gesture):

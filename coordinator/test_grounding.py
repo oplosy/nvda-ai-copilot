@@ -1,6 +1,6 @@
 import unittest
 
-from grounding import css_rect, resolve
+from grounding import resolve, screen_rect
 
 BUTTON = {"id": "e_1", "tag": "button", "htmlId": "go", "rect": (10, 10, 80, 30)}
 LINK = {"id": "e_2", "tag": "a", "htmlId": None, "rect": (10, 100, 28, 18)}
@@ -22,8 +22,20 @@ def nav(css, tag, html_id=None, classes=None, origin=(100, 200), dpr=1.0):
 
 
 class ResolveTest(unittest.TestCase):
-	def test_css_rect_applies_origin_and_dpr(self):
-		self.assertEqual(css_rect((115, 215, 120, 45), (100, 200), 1.5), (10, 10, 80, 30))
+	def test_screen_rect_applies_origin_and_dpr(self):
+		self.assertEqual(screen_rect((10, 10, 80, 30), (100, 200), 1.5), (115, 215, 120, 45))
+
+	def test_screen_rect_matches_measured_chromium_rounding(self):
+		# Measured in Chrome 155 via UIA (same bounds as IA2 accLocation), viewport origin (0, 87).
+		self.assertEqual(screen_rect((200, 10.5, 16, 16), (0, 87), 1), (200, 97, 16, 17))
+		self.assertEqual(screen_rect((300.390625, 20.59375, 33.296875, 17.6875), (0, 87), 1), (300, 107, 34, 19))
+		self.assertEqual(screen_rect((200, -2939.5, 16, 16), (0, 87), 1), (200, -2853, 16, 17))  # scrolled
+
+	def test_small_fractional_icon_still_matches(self):
+		icon = {"id": "e_9", "tag": "div", "htmlId": None, "rect": (200, 10.5, 8, 8)}
+		nav_icon = {"tag": "div", "htmlId": None, "classes": None, "screenRect": (200, 97, 8, 9), "viewportOrigin": (0, 87)}
+		m = resolve(nav_icon, [icon, BUTTON], 1)
+		self.assertEqual((m.status, m.element_id), ("matched", "e_9"))
 
 	def test_unique_html_id(self):
 		m = resolve(nav(BUTTON["rect"], "button", html_id="go"), ELEMENTS, 1.0)

@@ -21,8 +21,9 @@ from scriptHandler import script
 SESSION_FILE = os.path.join(os.environ["LOCALAPPDATA"], "nvda-ai-copilot", "session.json")
 REQUEST_TIMEOUT_S = 5
 EXPLAIN_TIMEOUT_S = 45  # covers the model call (coordinator client timeout is 30 s + one retry)
-MARKER_POLL_MS = 100
-MARKER_POLL_TRIES = 10
+# The class attribute showed up 15-31 ms after the DOM change in Chrome 155; poll fast, give up after 0.5 s.
+MARKER_POLL_MS = 25
+MARKER_POLL_TRIES = 20
 # shortcut: fixed delay so the reason is spoken after NVDA announces the newly focused element; tune from testing.
 FOUND_SPEAK_DELAY_MS = 600
 
@@ -38,7 +39,7 @@ def _navContext(obj):
 		"htmlId": attrs.get("id"),
 		"classes": attrs.get("class"),
 		"screenRect": list(loc) if loc else None,
-		# shortcut: viewport origin = document root position, unconfirmed until the spike log (docs/spike-dom-mapping.md).
+		# The document root stays at the viewport origin when scrolled (measured, docs/spike-dom-mapping.md).
 		"viewportOrigin": list(rootLoc[:2]) if rootLoc else None,
 	}
 

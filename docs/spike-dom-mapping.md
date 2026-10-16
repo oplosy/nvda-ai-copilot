@@ -44,6 +44,28 @@ For option 2 the real flow would be: hotkey → coordinator asks extension to sn
 candidates with `nvai-e_123` → NVDA re-reads the navigator's `class` (retry until present, ~100–500 ms)
 → coordinator gets `e_123` → extension removes the markers. The marker *is* the extension's element ID.
 
+## Results (2026-10-16, Chrome 155, Windows 11, 100 % scaling)
+
+Measured without NVDA through UI Automation: Chromium's `get_BoundingRectangle` and IA2
+`accLocation` both call `GetBoundsRect(kScreenPhysicalPixels, kUnclipped)`, and UIA `ClassName` /
+IA2 `class` both read `kClassName`, so the numbers are what NVDA sees. Test page with absolutely
+positioned elements, read by a DPI-aware client.
+
+| Question | Result |
+|----------|--------|
+| Viewport origin | IA2 document root position. It stays at the viewport origin when the page is scrolled (scrollY 0 and 2950 both gave (0, 87)), matching `getBoundingClientRect`. `Chrome_RenderWidgetHostHWND` no longer exists as a child window. |
+| Rounding | Chromium reports the **enclosing integer rect**: CSS (200, 10.5, 16, 16) → (200, 97, 16, 17); (300.39, 20.59, 33.3, 17.69) → (300, 107, 34, 19). Raw IoU drops to 0.91 on these, lower on smaller icons. Comparing against the snapped rect gives 1.0. |
+| Off-screen | Unclipped: an element at CSS y = 3000 is reported at screen y = 3087. |
+| Nested same-size boxes | Real (div 40×40 in div 40×40 both reported). A `span` inside a link is pruned from the tree, so the link is the only object. |
+| Marker latency | Class change visible to the AT 15 ms and 31 ms after `classList.add` (poll interval 15 ms). |
+
+Applied: `coordinator/grounding.py` compares in snapped physical pixels with IoU ≥ 0.9; the add-on
+polls the marker every 25 ms for up to 0.5 s; viewport origin = document root (confirmed).
+
+Not measured: display scaling or browser zoom other than 100 % (the math scales by
+`devicePixelRatio`; worth one check on a scaled display), iframes, and NVDA's own reading of the
+same values (expected identical, see above).
+
 ## Running the spike
 
 1. Install the NVDA AI Copilot add-on package (see `docs/dev-setup.md`, step 6); it includes

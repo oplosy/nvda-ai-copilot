@@ -46,10 +46,9 @@ candidates with `nvai-e_123` → NVDA re-reads the navigator's `class` (retry un
 
 ## Running the spike
 
-1. NVDA → Preferences → Settings → Advanced → enable *Enable loading custom code from Developer Scratchpad directory*.
-2. Copy `nvda-addon/spike/nvaiSpike.py` to `%APPDATA%\nvda\scratchpad\globalPlugins\`.
-3. NVDA menu → Tools → Reload plugins (or NVDA+Ctrl+F3).
-4. Open the test page in Chrome, browse mode.
+1. Install the NVDA AI Copilot add-on package (see `docs/dev-setup.md`, step 6); it includes
+   `nvda-addon/spike/nvaiSpike.py`.
+2. Open the test page in Chrome, browse mode.
 
 Shortcuts:
 

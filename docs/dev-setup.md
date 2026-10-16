@@ -29,19 +29,24 @@ as untrusted data inside `<page_data>`.
    Variables), then restart Chrome fully. Chrome starts the coordinator, so the coordinator only
    sees variables Chrome was started with.
 3. Chrome → `chrome://extensions` → Developer mode → *Load unpacked* → select `extension/`.
-   Copy the extension ID.
-4. Register the native host:
+   The ID is always `ijifaphfddholfknhblhfnoajaekjgnj` (pinned by `key` in the manifest).
+4. Register the native host (the ID argument is only needed if you change the key):
 
    ```powershell
-   python coordinator\install_host.py <extension-id>
+   python coordinator\install_host.py
    ```
 
    This writes `coordinator/com.nvda_ai_copilot.coordinator.json` and the key
    `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.nvda_ai_copilot.coordinator`.
 5. Reload the extension (or restart Chrome). Reload any tab that was open before the extension.
-6. NVDA: with scratchpad loading enabled (see `docs/spike-dom-mapping.md`), copy
-   `nvda-addon/globalPlugins/nvdaAiCopilot.py` to `%APPDATA%\nvda\scratchpad\globalPlugins\`
-   and reload plugins (NVDA+Ctrl+F3).
+6. NVDA add-on: build the package and open it; NVDA asks to install and restart.
+
+   ```powershell
+   python nvda-addon\build.py
+   ```
+
+   The package (`nvda-addon/dist/nvdaAiCopilot-<version>.nvda-addon`) also contains the spike
+   commands from `docs/spike-dom-mapping.md`. Rebuild and reinstall after changing the plugin.
 
 ## Checks
 

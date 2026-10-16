@@ -3,6 +3,7 @@
   "name": "NVDA AI Copilot",
   "version": "0.1.0",
   "description": "Gives the NVDA AI Copilot coordinator grounded access to page elements.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoXqkgdc98ZobqJ5W11fHXc/nPdN9s0l1Ywo1B6YSaoa7i99xIqSmpP+0YnNFd6PdmnldeUQBax1W+nvTAuQFETIcnO14vHUu+H61TM7yLBAsKQ9k+vthPP+moU7Z6qYijTV/qVZf/S8exgTqaONlUqnae7hLKuguLhu6pwcB4VJJNEoVprujsViurYTfiryCYL/xhhhbZvvUlA7I1ZuQZmx0ycgImT4oFIj6iddpOBkD7BZx+WT807lx+iGzOPZdR9chIoMxpZg0SFAd0RB6eevzq7eEni/hbh/KdgidVnXgRiK2kCAwHwwRwW/v0mCqwHdTKrT6wufe21dAEQ+aIQIDAQAB",
   "permissions": ["nativeMessaging"],
   "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "background.js" },

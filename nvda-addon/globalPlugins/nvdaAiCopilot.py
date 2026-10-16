@@ -10,8 +10,10 @@ import threading
 import api
 import core
 import globalPluginHandler
+import gui
 import queueHandler
 import ui
+import wx
 from logHandler import log
 from NVDAObjects.IAccessible import IAccessible
 from scriptHandler import script
@@ -21,6 +23,8 @@ REQUEST_TIMEOUT_S = 5
 EXPLAIN_TIMEOUT_S = 45  # covers the model call (coordinator client timeout is 30 s + one retry)
 MARKER_POLL_MS = 100
 MARKER_POLL_TRIES = 10
+# shortcut: fixed delay so the reason is spoken after NVDA announces the newly focused element; tune from testing.
+FOUND_SPEAK_DELAY_MS = 600
 
 
 def _navContext(obj):
@@ -98,6 +102,38 @@ def _describe(reply):
 	return f"Copilot hatası: {reply.get('message')}"
 
 
+def _find(query):
+	"""Worker thread: the coordinator picks an element, the extension focuses it, NVDA follows focus."""
+	_onMain(ui.message, "Copilot: aranıyor")
+	reply = _call({"type": "find", "query": query}, EXPLAIN_TIMEOUT_S)
+	if reply is None:
+		return
+	status = reply.get("status")
+	if status == "found":
+		text = f"AI yorumu: {reply['text']}"
+		if not reply.get("focused"):
+			text += " Odak taşınamadı."
+		_onMain(core.callLater, FOUND_SPEAK_DELAY_MS, ui.message, text)
+	elif status == "none":
+		_onMain(ui.message, f"AI yorumu: {reply['text']}")
+	else:
+		_onMain(ui.message, _describe(reply))
+
+
+def _askQuery():
+	"""Main (wx) thread: ask what to find, then search in a worker."""
+	gui.mainFrame.prePopup()
+	dlg = wx.TextEntryDialog(gui.mainFrame, "Sayfada ne arıyorsun?", "NVDA AI Copilot")
+	try:
+		ok = dlg.ShowModal() == wx.ID_OK
+		query = dlg.GetValue().strip()
+	finally:
+		dlg.Destroy()
+		gui.mainFrame.postPopup()
+	if ok and query:
+		threading.Thread(target=_find, args=(query[:300],), daemon=True).start()
+
+
 def _webNavigator():
 	obj = api.getNavigatorObject()
 	if not isinstance(obj, IAccessible) or obj.appModule.appName != "chrome":
@@ -120,6 +156,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			ui.message("Copilot: odak Chrome'da değil")
 			return
 		threading.Thread(target=_askModel, args=({"type": "summarize"},), daemon=True).start()
+
+	@script(description="NVDA AI Copilot: find something on the web page with AI and move there", gesture="kb:NVDA+alt+shift+f")
+	def script_find(self, gesture):
+		if api.getFocusObject().appModule.appName != "chrome":
+			ui.message("Copilot: odak Chrome'da değil")
+			return
+		wx.CallAfter(_askQuery)
 
 	@script(description="NVDA AI Copilot: locate navigator object in the page (debug)", gesture="kb:NVDA+alt+shift+l")
 	def script_locate(self, gesture):

@@ -113,6 +113,7 @@ function pageOutline(doc) {
   const controls = visible(CONTROLS).map((el) => {
     const name = accessibleName(el);
     return {
+      id: elementId(el),
       tag: el.tagName.toLowerCase(),
       role: el.getAttribute('role'),
       type: el.getAttribute('type'),
@@ -126,10 +127,12 @@ function pageOutline(doc) {
   const main = doc.querySelector('main, [role=main]') || doc.body;
   return {
     headings: visible('h1, h2, h3, h4, h5, h6, [role=heading]').map((el) => ({
+      id: elementId(el),
       level: Number(el.getAttribute('aria-level') || el.tagName.slice(1)) || null,
       text: clip(el.innerText, 120),
     })),
     landmarks: visible(LANDMARKS).map((el) => ({
+      id: elementId(el),
       role: el.getAttribute('role') || el.tagName.toLowerCase(),
       name: clip(el.getAttribute('aria-label') || idrefText(el, 'aria-labelledby'), 80),
     })),
@@ -140,6 +143,18 @@ function pageOutline(doc) {
     controlCount: controls.length,
     mainText: clip(main ? main.innerText : '', 1500),
   };
+}
+
+// Move keyboard focus (and so NVDA's browse-mode cursor) to el. Non-focusable elements get a
+// temporary tabindex=-1 that is removed again when focus leaves. Returns whether focus landed.
+function focusElement(el) {
+  el.scrollIntoView({ block: 'center' });
+  if (el.tabIndex < 0 && !el.hasAttribute('tabindex')) {
+    el.setAttribute('tabindex', '-1');
+    el.addEventListener('blur', () => el.removeAttribute('tabindex'), { once: true });
+  }
+  el.focus({ preventScroll: true });
+  return el.ownerDocument.activeElement === el;
 }
 
 function sensitiveRects(elements) {
@@ -165,4 +180,4 @@ function cropBox(rect, viewport, scale, margin = 120) {
   return [left, top, right - left, bottom - top].map((v) => Math.round(v * scale));
 }
 
-if (typeof module !== 'undefined') module.exports = { isSensitiveField, describeElement, pageOutline, sensitiveRects, cropBox };
+if (typeof module !== 'undefined') module.exports = { isSensitiveField, describeElement, pageOutline, focusElement, sensitiveRects, cropBox };

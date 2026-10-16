@@ -8,6 +8,10 @@ In Chrome browse mode:
 - **NVDA+Alt+Shift+P**: summarize the page. The extension sends a value-free outline (headings,
   landmarks, alerts, controls with names, start of the main text) and a masked screenshot of the
   viewport. No grounding needed.
+- **NVDA+Alt+Shift+F**: find. Asks what to look for; the model picks one element from the
+  outline (the JSON schema only allows IDs the extension issued, and the coordinator checks again),
+  the extension focuses it (non-focusable elements get a temporary `tabindex=-1`) and NVDA follows
+  focus. Focus is the only action; nothing is clicked or submitted.
 - **NVDA+Alt+Shift+L**: grounding only (debug). Speaks the extension element ID (`e_N`).
 
 The extension talks to the active tab of the last focused Chrome window. Any page load wakes the

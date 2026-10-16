@@ -26,6 +26,7 @@ SESSION_FILE = DATA_DIR / "session.json"
 EXTENSION_TIMEOUT_S = 3
 CLIENT_TIMEOUT_S = 5
 MAX_REQUEST_BYTES = 64 * 1024
+MAX_QUERY_CHARS = 300
 
 log = logging.getLogger("coordinator")
 
@@ -69,10 +70,12 @@ class Extension:
 
 
 class Coordinator:
-	def __init__(self, ask_extension, explain=None):
+	def __init__(self, ask_extension, explain=None, choose=None):
 		self.ask = ask_extension
 		# explain(data, screenshot, task) -> spoken text
 		self.explain_fn = explain or (lambda ctx, shot, task: llm.explain(llm.default_client(), ctx, shot, task))
+		# choose(data, screenshot, user_request, choices) -> (element ID in choices or None, spoken reason)
+		self.choose_fn = choose or (lambda ctx, shot, q, ids: llm.choose(llm.default_client(), ctx, shot, q, ids))
 		self.pending = None  # (nonce, snapshot) of the marking round the add-on is polling
 
 	def handle(self, req):
@@ -84,6 +87,9 @@ class Coordinator:
 				return self.explain(req["elementId"])
 			if kind == "summarize":
 				return self.summarize()
+			query = req.get("query")
+			if kind == "find" and isinstance(query, str) and 0 < len(query.strip()) <= MAX_QUERY_CHARS:
+				return self.find(query.strip())
 			return {"status": "error", "message": "bad request"}
 		except (ExtensionError, llm.LLMError) as e:
 			return {"status": "error", "message": str(e)}
@@ -99,6 +105,21 @@ class Coordinator:
 	def summarize(self):
 		ctx = self.ask({"type": "outline"})
 		return {"status": "explained", "text": self._ask_model(ctx, "outline", "summarize")}
+
+	def find(self, query):
+		ctx = self.ask({"type": "outline"})
+		outline = ctx["outline"]
+		# The model may only pick an element the extension listed; "focus" is the only action allowed.
+		choices = sorted({item["id"] for part in ("headings", "landmarks", "controls") for item in outline[part]})
+		data = redact({"page": ctx["page"], "outline": outline})
+		shot = ctx.get("screenshot")
+		log.info("find %r: %s choices, screenshot=%s chars", query, len(choices), len(shot or ""))
+		element_id, reason = self.choose_fn(data, shot, query, choices)
+		log.info("find %r -> %s %r", query, element_id, reason)
+		if element_id is None:
+			return {"status": "none", "text": reason}
+		focused = self.ask({"type": "focus", "elementId": element_id}).get("focused")
+		return {"status": "found", "elementId": element_id, "focused": bool(focused), "text": reason}
 
 	def _ask_model(self, ctx, key, task):
 		if ctx.get("screenshotError"):

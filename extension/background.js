@@ -47,7 +47,10 @@ async function handle(msg) {
   return reply;
 }
 
+let connected = false;
+
 function connect() {
+  connected = true;
   const port = chrome.runtime.connectNative(HOST);
   port.onMessage.addListener(async (msg) => {
     let reply;
@@ -60,10 +63,15 @@ function connect() {
   });
   port.onDisconnect.addListener(() => {
     console.warn('native host disconnected:', chrome.runtime.lastError?.message);
-    setTimeout(connect, RECONNECT_MS);
+    connected = false;
+    setTimeout(() => connected || connect(), RECONNECT_MS);
   });
 }
 
 // Registering onStartup makes Chrome wake the service worker at launch; the open port keeps it alive.
 chrome.runtime.onStartup.addListener(() => {});
+// Every page load pings, so a worker that was stopped after a failed connect comes back.
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  if (msg?.type === 'hello' && sender.id === chrome.runtime.id && !connected) connect();
+});
 connect();

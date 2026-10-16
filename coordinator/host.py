@@ -94,8 +94,10 @@ class Coordinator:
 			log.warning("screenshot failed: %s", ctx["screenshotError"])
 		# Only these keys may reach the model; redact() is the last filter before it.
 		data = redact({"page": ctx["page"], "element": ctx["element"]})
-		text = self.explain_fn(data, ctx.get("screenshot"))
-		log.info("explain %s (screenshot=%s) -> %r", element_id, bool(ctx.get("screenshot")), text)
+		shot = ctx.get("screenshot")
+		log.info("explain %s: screenshot=%s chars, element=%s", element_id, len(shot or ""), data["element"].get("tag"))
+		text = self.explain_fn(data, shot)
+		log.info("explain %s -> %r", element_id, text)
 		return {"status": "explained", "elementId": element_id, "text": text}
 
 	def locate(self, nav, nonce=None):

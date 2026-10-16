@@ -1,5 +1,7 @@
 // Answers coordinator requests in the top frame. Uses helpers from grounding.js and context.js.
 
+chrome.runtime.sendMessage({ type: 'hello' }).catch(() => {}); // wakes the worker; no reply expected
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const all = document.body ? document.body.querySelectorAll('*') : [];
   if (msg.type === 'snapshot') {

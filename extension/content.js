@@ -33,6 +33,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       return;
     }
     sendResponse({ focused: focusElement(el) });
+  } else if (msg.type === 'form') {
+    const el = elementById(msg.elementId);
+    if (!el) {
+      sendResponse({ error: 'element is no longer in the page' });
+      return;
+    }
+    const form = formContext(el);
+    sendResponse({
+      page: { origin: location.origin, title: clip(document.title, 150) },
+      form,
+      rect: form.rect,
+      viewport: [innerWidth, innerHeight],
+      sensitiveRects: sensitiveRects(all),
+    });
   } else if (msg.type === 'outline') {
     sendResponse({
       page: { origin: location.origin, title: clip(document.title, 150) },

@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const { isSensitiveField, cropBox } = require('./context.js');
 
 function field(tagName, attrs = {}, labels = []) {
-  return { tagName, getAttribute: (n) => attrs[n] ?? null, labels: labels.map((t) => ({ innerText: t })) };
+  return { tagName, getAttribute: (n) => attrs[n] ?? null, labels: labels.map((t) => ({ textContent: t })) };
 }
 
 test('password, OTP and card fields are sensitive', () => {

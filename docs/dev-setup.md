@@ -12,7 +12,14 @@ In Chrome browse mode:
   outline (the JSON schema only allows IDs the extension issued, and the coordinator checks again),
   the extension focuses it (non-focusable elements get a temporary `tabindex=-1`) and NVDA follows
   focus. Focus is the only action; nothing is clicked or submitted.
+- **NVDA+Alt+Shift+R**: form help. Grounds the navigator object, then describes the surrounding
+  form (`form`, `[role=form]` or `fieldset`, else the page): labels, required, filled (yes/no only),
+  invalid with validity flags, error texts, buttons. Explains what to fill and how to fix errors.
+  `validationMessage` is never sent because Chrome's text can quote what was typed.
 - **NVDA+Alt+Shift+L**: grounding only (debug). Speaks the extension element ID (`e_N`).
+
+All text sent to the model goes through `safeText()` in `extension/context.js`, which skips form
+fields and `contenteditable` regions, so typed text never leaves through `innerText`.
 
 The extension talks to the active tab of the last focused Chrome window. Any page load wakes the
 service worker and reconnects the coordinator if it was stopped.

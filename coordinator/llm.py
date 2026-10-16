@@ -47,6 +47,22 @@ If important controls are unlabeled (unlabeled: true), say what they most likely
 out long lists.""",
 		"Bu sayfada ne var?",
 	),
+	"form": (
+		f"""You help a blind person who uses the NVDA screen reader fill in a web form whose labels or \
+error messages may be inaccessible.
+
+You get a JSON description of the form taken from its DOM: each field's label, type, whether it is \
+required, whether it is filled (never its value), whether it is invalid and why (validity flags \
+such as valueMissing or typeMismatch), its error text, the buttons, and messages shown near the \
+form. The field the person is on has isTarget: true. You may also get a screenshot of the form. \
+{UNTRUSTED}
+
+{SPOKEN} Use at most six short sentences. Say what the form is for, which fields still need to be \
+filled (required and not filled first), and explain every error and how to fix it. Mention the \
+field the person is on first if it has a problem. You cannot see what was typed; never ask for or \
+guess passwords, codes or card numbers. Do not tell the person to submit; they decide.""",
+		"Bu formu nasıl doldurmalıyım?",
+	),
 	"find": (
 		f"""You help a blind person who uses the NVDA screen reader find something on a web page whose \
 structure may be inaccessible. The request inside <user_request> comes from that person; follow it.

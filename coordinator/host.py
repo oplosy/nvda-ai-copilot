@@ -87,6 +87,9 @@ class Coordinator:
 				return self.explain(req["elementId"])
 			if kind == "summarize":
 				return self.summarize()
+			if kind == "form" and isinstance(req.get("elementId"), str):
+				ctx = self.ask({"type": "form", "elementId": req["elementId"]})
+				return {"status": "explained", "text": self._ask_model(ctx, "form", "form")}
 			query = req.get("query")
 			if kind == "find" and isinstance(query, str) and 0 < len(query.strip()) <= MAX_QUERY_CHARS:
 				return self.find(query.strip())

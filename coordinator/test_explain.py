@@ -110,6 +110,28 @@ class CoordinatorExplainTest(unittest.TestCase):
 		self.assertNotIn("4111", dumped)
 		self.assertNotIn('"value"', dumped)
 
+	def test_form_sends_only_redacted_page_and_form(self):
+		form_ctx = {
+			"page": {"origin": "https://bank.example", "title": "Giriş"},
+			"form": {"fields": [{"label": "Kart", "filled": True, "value": "4111111111111111"}], "messages": ["4111 1111 1111 1111 geçersiz"]},
+			"rect": [0, 0, 10, 10],
+			"screenshot": None,
+		}
+		seen = {}
+
+		def fake(data, shot, task):
+			seen.update(data=data, task=task)
+			return "Kart alanında hata var."
+
+		sent = []
+		c = Coordinator(lambda msg: sent.append(msg) or dict(form_ctx), explain=fake)
+		r = c.handle({"type": "form", "elementId": "e_4"})
+		self.assertEqual(r, {"status": "explained", "text": "Kart alanında hata var."})
+		self.assertEqual(sent, [{"type": "form", "elementId": "e_4"}])
+		self.assertEqual((set(seen["data"]), seen["task"]), ({"page", "form"}, "form"))
+		self.assertNotIn("4111", json.dumps(seen["data"], ensure_ascii=False))
+		self.assertIn("never its value", llm.build_request({}, None, "form")["system"])
+
 	def test_summarize_prompt_differs_from_explain(self):
 		s = llm.build_request({}, None, "summarize")
 		e = llm.build_request({}, None)

@@ -6,14 +6,25 @@ const SENSITIVE_AUTOCOMPLETE = /\b(cc-|one-time-code|current-password|new-passwo
 const SENSITIVE_HINT =
   /(passw|parola|şifre|sifre|otp|one.?time|tek kullanımlık|doğrulama kodu|dogrulama kodu|verification code|security code|güvenlik kodu|cvv|cvc|card.?num|kart.?n|iban|\bpin\b)/i;
 
-// innerText of a textarea is its content, so form fields contribute no text at all.
-function ownText(el) {
-  return /^(input|textarea|select)$/i.test(el.tagName) ? '' : el.innerText;
-}
+// Text the user typed lives in form fields and contenteditable regions; innerText would include it.
+const NO_TEXT = 'input, textarea, select, script, style, noscript';
 
 function clip(text, limit = TEXT_LIMIT) {
   const t = (text || '').replace(/\s+/g, ' ').trim();
   return t.length > limit ? t.slice(0, limit) + '…' : t;
+}
+
+// Visible page text under root, skipping fields and editable regions. Never use innerText for model data.
+function safeText(root, limit = TEXT_LIMIT) {
+  if (!root || root.isContentEditable || root.matches(NO_TEXT)) return '';
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let out = '';
+  for (let n = walker.nextNode(); n && out.length <= limit; n = walker.nextNode()) {
+    const p = n.parentElement;
+    if (!p || p.isContentEditable || p.closest(NO_TEXT) || !isVisible(p)) continue;
+    out += n.data + ' ';
+  }
+  return clip(out, limit);
 }
 
 // password, OTP and card fields: their value, and their pixels, must never reach the model.
@@ -23,13 +34,13 @@ function isSensitiveField(el) {
   if ((el.getAttribute('type') || '').toLowerCase() === 'password') return true;
   if (SENSITIVE_AUTOCOMPLETE.test(el.getAttribute('autocomplete') || '')) return true;
   const hints = ['name', 'id', 'aria-label', 'placeholder'].map((a) => el.getAttribute(a) || '');
-  if (el.labels) for (const l of el.labels) hints.push(l.innerText || '');
+  if (el.labels) for (const l of el.labels) hints.push(l.textContent || ''); // local regex check only
   return hints.some((h) => SENSITIVE_HINT.test(h));
 }
 
 function idrefText(el, attr) {
   const ids = (el.getAttribute(attr) || '').split(/\s+/).filter(Boolean);
-  return clip(ids.map((id) => el.ownerDocument.getElementById(id)?.innerText || '').join(' '));
+  return clip(ids.map((id) => safeText(el.ownerDocument.getElementById(id))).join(' '));
 }
 
 function describeElement(el) {
@@ -56,13 +67,13 @@ function describeElement(el) {
     alt: attr('alt'),
     placeholder: attr('placeholder'),
     link,
-    labels: el.labels ? Array.from(el.labels, (l) => clip(l.innerText)) : [],
-    text: sensitive ? '' : clip(ownText(el)),
+    labels: el.labels ? Array.from(el.labels, (l) => safeText(l)) : [],
+    text: sensitive ? '' : safeText(el),
     images: Array.from(el.querySelectorAll('img, svg'), (i) => clip(i.getAttribute('alt') || i.getAttribute('aria-label') || i.querySelector?.('title')?.textContent || '', 80)).filter(Boolean),
     nearby: {
-      before: clip(el.previousElementSibling?.innerText, 150),
-      after: clip(el.nextElementSibling?.innerText, 150),
-      parent: clip(el.parentElement?.innerText),
+      before: safeText(el.previousElementSibling, 150),
+      after: safeText(el.nextElementSibling, 150),
+      parent: safeText(el.parentElement),
     },
     states: {
       disabled: el.disabled === true || attr('aria-disabled') === 'true',
@@ -88,8 +99,8 @@ function accessibleName(el) {
   return clip(
     attr('aria-label') ||
       idrefText(el, 'aria-labelledby') ||
-      (el.labels ? Array.from(el.labels, (l) => l.innerText).join(' ') : '') ||
-      ownText(el) ||
+      (el.labels ? Array.from(el.labels, (l) => safeText(l)).join(' ') : '') ||
+      safeText(el, 100) ||
       attr('title') ||
       attr('alt') ||
       attr('placeholder') ||
@@ -129,7 +140,7 @@ function pageOutline(doc) {
     headings: visible('h1, h2, h3, h4, h5, h6, [role=heading]').map((el) => ({
       id: elementId(el),
       level: Number(el.getAttribute('aria-level') || el.tagName.slice(1)) || null,
-      text: clip(el.innerText, 120),
+      text: safeText(el, 120),
     })),
     landmarks: visible(LANDMARKS).map((el) => ({
       id: elementId(el),
@@ -137,11 +148,64 @@ function pageOutline(doc) {
       name: clip(el.getAttribute('aria-label') || idrefText(el, 'aria-labelledby'), 80),
     })),
     alerts: visible('[role=alert], [role=status], [aria-live]:not([aria-live=off])')
-      .map((el) => clip(el.innerText, 200))
+      .map((el) => safeText(el, 200))
       .filter(Boolean),
     controls: controls.slice(0, OUTLINE_CONTROL_LIMIT),
     controlCount: controls.length,
-    mainText: clip(main ? main.innerText : '', 1500),
+    mainText: safeText(main, 1500),
+  };
+}
+
+const FORM_FIELD_LIMIT = 60;
+const FIELDS =
+  'input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=reset]):not([type=image]), select, textarea, [role=textbox], [role=combobox], [role=checkbox], [role=radio], [role=switch], [role=spinbutton], [role=listbox], [contenteditable]:not([contenteditable=false])';
+const VALIDITY_FLAGS = ['valueMissing', 'typeMismatch', 'patternMismatch', 'tooShort', 'tooLong', 'rangeUnderflow', 'rangeOverflow', 'stepMismatch', 'badInput'];
+
+// Value-free description of the form around el: labels, required/filled/invalid state, error texts.
+// validationMessage is not used: Chrome's message can quote what the user typed.
+function formContext(el) {
+  const doc = el.ownerDocument;
+  const container = el.closest('form, [role=form], fieldset') || doc.body;
+  const fields = Array.from(container.querySelectorAll(FIELDS)).filter(isVisible).slice(0, FORM_FIELD_LIMIT);
+  const field = (f) => {
+    const validity = f.validity ? VALIDITY_FLAGS.filter((k) => f.validity[k]) : [];
+    const userInvalid = f.matches(':user-invalid') || f.getAttribute('aria-invalid') === 'true';
+    const isToggle = f.type === 'checkbox' || f.type === 'radio';
+    return {
+      id: elementId(f),
+      tag: f.tagName.toLowerCase(),
+      type: f.getAttribute('type'),
+      role: f.getAttribute('role'),
+      label: accessibleName(f),
+      placeholder: f.getAttribute('placeholder'),
+      required: f.required === true || f.getAttribute('aria-required') === 'true',
+      // whether, never what; a checkbox's value is always set, its state is in checked
+      filled: typeof f.value === 'string' && !isToggle ? f.value !== '' : null,
+      checked: isToggle ? f.checked : null,
+      disabled: f.disabled === true || f.getAttribute('aria-disabled') === 'true',
+      invalid: userInvalid,
+      problems: userInvalid ? validity : [],
+      errorText: clip(idrefText(f, 'aria-errormessage') || (userInvalid ? idrefText(f, 'aria-describedby') : ''), 200),
+      sensitive: isSensitiveField(f),
+      isTarget: f === el,
+    };
+  };
+  const visibleIn = (sel) => Array.from(container.querySelectorAll(sel)).filter(isVisible);
+  const r = container.getBoundingClientRect();
+  return {
+    name: clip(
+      container.getAttribute('aria-label') || idrefText(container, 'aria-labelledby') || safeText(container.querySelector('legend, h1, h2, h3')),
+      120,
+    ),
+    wholePage: container === doc.body,
+    fields: fields.map(field),
+    buttons: visibleIn('button, input[type=submit], input[type=button], [role=button]').map((b) => accessibleName(b)).filter(Boolean).slice(0, 15),
+    messages: visibleIn('[role=alert], [role=status], [aria-live]:not([aria-live=off]), [class*=error i], [class*=invalid i]')
+      .filter((m) => !m.matches(FIELDS))
+      .map((m) => safeText(m, 200))
+      .filter(Boolean)
+      .slice(0, 10),
+    rect: [r.x, r.y, r.width, r.height],
   };
 }
 
@@ -180,4 +244,4 @@ function cropBox(rect, viewport, scale, margin = 120) {
   return [left, top, right - left, bottom - top].map((v) => Math.round(v * scale));
 }
 
-if (typeof module !== 'undefined') module.exports = { isSensitiveField, describeElement, pageOutline, focusElement, sensitiveRects, cropBox };
+if (typeof module !== 'undefined') module.exports = { isSensitiveField, describeElement, pageOutline, formContext, focusElement, sensitiveRects, cropBox };

@@ -151,6 +151,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if obj:
 			self._locate(obj, {"type": "locate", "nav": _navContext(obj)}, _explainMatched)
 
+	@script(description="NVDA AI Copilot: explain the form around the navigator object with AI", gesture="kb:NVDA+alt+shift+r")
+	def script_form(self, gesture):
+		obj = _webNavigator()
+		if obj:
+			onMatched = lambda located: _askModel({"type": "form", "elementId": located["elementId"]})  # noqa: E731
+			self._locate(obj, {"type": "locate", "nav": _navContext(obj)}, onMatched)
+
 	@script(description="NVDA AI Copilot: summarize the current web page with AI", gesture="kb:NVDA+alt+shift+p")
 	def script_summarize(self, gesture):
 		if api.getFocusObject().appModule.appName != "chrome":

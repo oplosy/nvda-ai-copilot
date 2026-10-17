@@ -78,6 +78,10 @@ def is_blocked(origin, sites):
 	return any(host == s or host.endswith("." + s) for s in sites)
 
 
+def _ms(start):
+	return round((time.monotonic() - start) * 1000)
+
+
 def info(code, text):
 	"""A spoken notice that is not AI output; the add-on speaks its own translation of code."""
 	return {"status": "info", "code": code, "text": text}
@@ -149,13 +153,18 @@ class Coordinator:
 		"""emit(text), if given, receives finished sentences of the answer while it is written."""
 		self.settings = parse_settings(req.get("settings"))
 		self.streamed = False
+		start = time.monotonic()
 
 		def on_sentence(text):
+			if not self.streamed:
+				log.info("%s: first sentence after %s ms", req.get("type"), _ms(start))
 			self.streamed = True
 			emit(text)
 
 		self._emit = on_sentence if emit else None
 		reply = self._handle(req)
+		# Timings show where a slow answer loses time: the page (extension) or the model.
+		log.info("%s: %s in %s ms", req.get("type"), reply.get("status"), _ms(start))
 		if self.streamed and reply.get("status") == "explained":
 			reply["streamed"] = True  # the add-on already spoke it
 		return reply
@@ -262,7 +271,9 @@ class Coordinator:
 	def _page(self, msg):
 		"""Page data from the extension, with the person's privacy settings applied before any of it
 		can reach the model."""
+		start = time.monotonic()
 		ctx = self.ask(msg if self.settings["screenshots"] else {**msg, "screenshot": False})
+		log.info("%s: extension %s ms", msg["type"], _ms(start))
 		if is_blocked(ctx["page"]["origin"], self.settings["blockedSites"]):
 			raise Blocked()
 		if not self.settings["screenshots"]:

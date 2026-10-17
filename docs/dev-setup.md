@@ -16,6 +16,8 @@ In Chrome browse mode:
   form (`form`, `[role=form]` or `fieldset`, else the page): labels, required, filled (yes/no only),
   invalid with validity flags, error texts, buttons. Explains what to fill and how to fix errors.
   `validationMessage` is never sent because Chrome's text can quote what was typed.
+- **NVDA+Alt+Shift+T**: table help. Grounds the navigator object and describes the table around
+  it (caption, first 30 rows x 12 columns of cell text, marked headers, sizes, the current cell).
 - **NVDA+Alt+Shift+C**: what changed. The extension records DOM changes since the last click or
   key press in the page (added, text, attribute and removed content; never inside fields or
   `contenteditable`) and the model says what they mean. No changes: answered without the model.

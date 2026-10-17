@@ -262,6 +262,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			onMatched = lambda located: _askModel({"type": "form", "elementId": located["elementId"]})  # noqa: E731
 			self._locate(obj, {"type": "locate", "nav": _navContext(obj)}, onMatched)
 
+	@script(description="NVDA AI Copilot: explain the table around the navigator object with AI", gesture="kb:NVDA+alt+shift+t")
+	def script_table(self, gesture):
+		obj = _webNavigator()
+		if obj:
+			onMatched = lambda located: _askModel({"type": "table", "elementId": located["elementId"]})  # noqa: E731
+			self._locate(obj, {"type": "locate", "nav": _navContext(obj)}, onMatched)
+
 	@script(description="NVDA AI Copilot: summarize the current web page with AI", gesture="kb:NVDA+alt+shift+p")
 	def script_summarize(self, gesture):
 		if not _browserFocused():

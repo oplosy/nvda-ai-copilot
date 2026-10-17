@@ -269,6 +269,43 @@ function formContext(el) {
   };
 }
 
+const TABLES = 'table, [role=table], [role=grid], [role=treegrid]';
+const TABLE_CELLS = 'th, td, [role=cell], [role=gridcell], [role=columnheader], [role=rowheader]';
+const TABLE_ROW_LIMIT = 30;
+const TABLE_COL_LIMIT = 12;
+
+// Value-free description of the table around el (or inside it): caption, the first rows as cell
+// texts, which cells are marked as headers, sizes, and the cell el is in. Null if there is none.
+function tableContext(el) {
+  const table = el.closest(TABLES) || el.querySelector(TABLES);
+  if (!table) return null;
+  const rows = Array.from(table.querySelectorAll('tr, [role=row]')).filter((r) => r.closest(TABLES) === table && isVisible(r));
+  const cellsOf = (r) => Array.from(r.children).filter((c) => c.matches(TABLE_CELLS));
+  let target = null;
+  const shown = rows.slice(0, TABLE_ROW_LIMIT).map((r, i) => {
+    const cells = cellsOf(r).slice(0, TABLE_COL_LIMIT);
+    const headers = [];
+    const texts = cells.map((c, j) => {
+      if (c.contains(el)) target = [i, j];
+      if (c.tagName === 'TH' || /header/.test(c.getAttribute('role') || '')) headers.push(j);
+      return safeText(c, 80);
+    });
+    return headers.length ? { cells: texts, headers } : { cells: texts };
+  });
+  const r = table.getBoundingClientRect();
+  return {
+    caption: clip(
+      table.getAttribute('aria-label') || idrefText(table, 'aria-labelledby') || safeText(table.querySelector('caption')),
+      120,
+    ),
+    rows: shown,
+    rowCount: rows.length,
+    columnCount: Math.max(0, ...rows.map((row) => cellsOf(row).length)),
+    target,
+    rect: [r.x, r.y, r.width, r.height],
+  };
+}
+
 // Move keyboard focus (and so NVDA's browse-mode cursor) to el. Non-focusable elements get a
 // temporary tabindex=-1 that is removed again when focus leaves. Returns whether focus landed.
 function focusElement(el) {
@@ -313,4 +350,4 @@ function cropBox(rect, viewport, scale, margin = 120) {
 }
 
 if (typeof module !== 'undefined')
-  module.exports = { NO_TEXT, clip, safeText, accessibleName, isVisible, isSensitiveField, describeElement, pageOutline, pageAlerts, pageSections, formContext, focusElement, sensitiveRects, cropBox };
+  module.exports = { NO_TEXT, clip, safeText, accessibleName, isVisible, isSensitiveField, describeElement, pageOutline, pageAlerts, pageSections, formContext, tableContext, focusElement, sensitiveRects, cropBox };

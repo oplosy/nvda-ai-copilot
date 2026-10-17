@@ -49,6 +49,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       viewport: [innerWidth, innerHeight],
       sensitiveRects: sensitiveRects(all),
     });
+  } else if (msg.type === 'table') {
+    const el = elementById(msg.elementId);
+    if (!el) {
+      sendResponse({ error: 'element is no longer in the page' });
+      return;
+    }
+    const table = tableContext(el);
+    sendResponse({
+      page: { origin: location.origin, title: clip(document.title, 150) },
+      table,
+      rect: table ? table.rect : [0, 0, 0, 0],
+      viewport: [innerWidth, innerHeight],
+      sensitiveRects: sensitiveRects(all),
+    });
   } else if (msg.type === 'changes') {
     sendResponse({
       page: { origin: location.origin, title: clip(document.title, 150) },

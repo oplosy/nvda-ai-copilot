@@ -27,7 +27,7 @@ globalThis.NodeFilter = window.NodeFilter;
 const ids = new WeakMap();
 globalThis.elementId = (el) => ids.get(el) || (ids.set(el, `e_${Math.random()}`), ids.get(el));
 
-const { describeElement, pageOutline, formContext } = require('./context.js');
+const { describeElement, pageOutline, formContext, tableContext } = require('./context.js');
 
 document.getElementById('name').value = 'TYPED-NAME';
 document.getElementById('pw').value = 'TYPED-PASSWORD';
@@ -56,4 +56,23 @@ test('form data says whether a field is filled, never what', () => {
   assert.strictEqual(byLabel['Ad Soyad'].filled, true);
   assert.strictEqual(byLabel['Ad Soyad'].isTarget, true);
   assert.strictEqual(byLabel['Parola'].sensitive, true);
+});
+
+test('table data: cell texts, marked headers, sizes and the target cell, never field values', () => {
+  document.body.insertAdjacentHTML(
+    'beforeend',
+    `<table id="orders"><caption>Siparişler</caption>
+      <tr><th>No</th><th>Tutar</th><th>Not</th></tr>
+      <tr><td>1</td><td id="amount">120 TL</td><td><input id="memo"></td></tr>
+      <tr><td>2</td><td>80 TL</td><td>hediye</td></tr>
+    </table>`,
+  );
+  document.getElementById('memo').value = 'TYPED-MEMO';
+  const t = tableContext(document.getElementById('amount'));
+  assert.strictEqual(t.caption, 'Siparişler');
+  assert.deepStrictEqual(t.rows[0], { cells: ['No', 'Tutar', 'Not'], headers: [0, 1, 2] });
+  assert.deepStrictEqual(t.rows[1], { cells: ['1', '120 TL', ''] });
+  assert.deepStrictEqual([t.rowCount, t.columnCount, t.target], [3, 3, [1, 1]]);
+  assert.ok(!JSON.stringify(t).includes('TYPED-MEMO'));
+  assert.strictEqual(tableContext(document.querySelector('h1')), null);
 });

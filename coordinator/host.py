@@ -106,6 +106,11 @@ class Coordinator:
 			if kind == "form" and isinstance(req.get("elementId"), str):
 				ctx = self.ask({"type": "form", "elementId": req["elementId"]})
 				return {"status": "explained", "text": self._ask_model(ctx, "form", "form")}
+			if kind == "table" and isinstance(req.get("elementId"), str):
+				ctx = self.ask({"type": "table", "elementId": req["elementId"]})
+				if not ctx.get("table"):
+					return {"status": "info", "text": "bu öğenin içinde veya çevresinde tablo yok"}
+				return {"status": "explained", "text": self._ask_model(ctx, "table", "table")}
 			if kind == "changes":
 				ctx = self.ask({"type": "changes"})
 				if not ctx["changes"]["items"]:

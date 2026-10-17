@@ -138,6 +138,23 @@ class FollowupTest(unittest.TestCase):
 		self.assertEqual(req["messages"][-1]["content"], "<user_request>\nbaşka?\n</user_request>")
 
 
+class TableTest(unittest.TestCase):
+	def test_no_table_is_said_without_the_model(self):
+		ext = FakeExtension({"table": {"page": PAGE, "table": None}})
+		r = Coordinator(ext.ask, explain=lambda *a: self.fail("model called")).handle({"type": "table", "elementId": "e_2"})
+		self.assertEqual(r["status"], "info")
+		self.assertEqual(ext.sent, [{"type": "table", "elementId": "e_2"}])
+
+	def test_table_reaches_the_model_redacted(self):
+		table = {"caption": "Kartlar", "rows": [{"cells": ["4111 1111 1111 1111", "Visa"]}], "rowCount": 1, "columnCount": 2, "target": None}
+		ext = FakeExtension({"table": {"page": PAGE, "table": table, "screenshot": "shot"}})
+		seen = {}
+		c = Coordinator(ext.ask, explain=lambda data, shot, task: seen.update(data=data, task=task) or "Kart tablosu.")
+		self.assertEqual(c.handle({"type": "table", "elementId": "e_2"}), {"status": "explained", "text": "Kart tablosu."})
+		self.assertEqual((set(seen["data"]), seen["task"]), ({"page", "table"}, "table"))
+		self.assertNotIn("4111", json.dumps(seen["data"]))
+
+
 class CacheTest(unittest.TestCase):
 	def test_same_element_is_answered_once_until_it_expires(self):
 		ctx = {"page": PAGE, "element": {"tag": "div", "states": {"expanded": "false"}}, "screenshot": "shot"}

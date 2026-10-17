@@ -37,7 +37,7 @@ async function handle(msg) {
   if (!tab) throw new Error('no active tab');
   const reply = await chrome.tabs.sendMessage(tab.id, msg, { frameId: 0 });
   if (!reply) throw new Error('content script did not answer (reload the page?)');
-  if (['context', 'outline', 'form', 'changes', 'sections'].includes(msg.type) && !reply.error) {
+  if (['context', 'outline', 'form', 'table', 'changes', 'sections'].includes(msg.type) && !reply.error) {
     try {
       reply.screenshot = await maskedCrop(tab.windowId, reply);
     } catch (e) {

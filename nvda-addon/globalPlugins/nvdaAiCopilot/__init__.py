@@ -151,6 +151,8 @@ def _messages():
 		"blocked": _("Copilot is turned off for this site in the NVDA settings"),
 		"no_table": _("There is no table in or around this element"),
 		"no_chart": _("There is no chart drawn as SVG in or around this element"),
+		"no_guide": _("No guided task is running; start one first"),
+		"guide_too_long": _("The guided task took too many steps and is stopped"),
 		"no_label": _("Saving works on the last element explanation; explain an element first"),
 		"label_unidentifiable": _("Nothing identifies this element on a later visit, so it cannot be saved"),
 		"label_saved": _("Saved: this AI comment is spoken at once on later visits"),
@@ -200,6 +202,29 @@ def _report(located):
 		_onMain(ui.message, _("Copilot: an AI-written accessibility report is on the clipboard. Paste it into an email or the site's feedback form."))
 	else:
 		_onMain(ui.message, _describe(reply))
+
+
+def _guide(msg):
+	"""Worker thread: speaks the next step; focus moves to its element and the person acts."""
+	# Translators: spoken while the AI works out the next step of a guided task.
+	_onMain(ui.message, _("Copilot: working out the next step"))
+	reply = _call(msg, EXPLAIN_TIMEOUT_S)
+	if reply is None:
+		return
+	if reply.get("status") != "guide":
+		_onMain(ui.message, _describe(reply))
+		return
+	text = _aiComment(reply["text"])
+	if reply.get("focused") is False:
+		text += " " + _("Focus could not be moved.")
+	if reply.get("done"):
+		# Translators: spoken after the last step of a guided task.
+		text += " " + _("The guided task is over.")
+	else:
+		# Translators: spoken after each step of a guided task.
+		text += " " + _("When you have done it, ask for the next step.")
+	# After NVDA announces the newly focused element, like find.
+	_onMain(core.callLater, FOUND_SPEAK_DELAY_MS if reply.get("focused") else 0, ui.message, text)
 
 
 def _toggleLabel():
@@ -423,6 +448,21 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@script(description=_("Saves the last element explanation for this site, or deletes a saved one"), gesture="kb:NVDA+alt+shift+k")
 	def script_label(self, gesture):
 		threading.Thread(target=_toggleLabel, daemon=True).start()
+
+	# Translators: input gesture description.
+	@script(description=_("Starts a guided task: AI tells each step and moves focus, you act"), gesture="kb:NVDA+alt+shift+g")
+	def script_guide(self, gesture):
+		if not _browserFocused():
+			return
+		# Translators: prompt of the guided task dialog.
+		wx.CallAfter(_askText, _("What do you want to do on this page?"), lambda goal: _guide({"type": "guide", "query": goal}))
+
+	# Translators: input gesture description.
+	@script(description=_("Asks for the next step of the guided task"), gesture="kb:NVDA+alt+shift+n")
+	def script_guideNext(self, gesture):
+		if not _browserFocused():
+			return
+		threading.Thread(target=_guide, args=({"type": "guide_next"},), daemon=True).start()
 
 	# Translators: input gesture description.
 	@script(description=_("Summarizes the current web page with AI"), gesture="kb:NVDA+alt+shift+p")

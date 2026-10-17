@@ -36,6 +36,9 @@ MAX_REQUEST_BYTES = 64 * 1024
 MAX_QUERY_CHARS = 300
 # A follow-up is about the answer the person just heard; after this the page has likely moved on.
 FOLLOWUP_TTL_S = 300
+# A guided task waits this long for the person's next step; a long task is stopped at the step limit.
+GUIDE_TTL_S = 15 * 60
+MAX_GUIDE_STEPS = 30
 # Same element, same state, same answer: repeat questions are spoken at once and cost nothing.
 CACHED_TASKS = {"explain"}
 CACHE_SIZE = 200
@@ -124,7 +127,7 @@ class Extension:
 
 
 class Coordinator:
-	def __init__(self, ask_extension, explain=None, choose=None, sections=None, followup=None, saved_labels=None):
+	def __init__(self, ask_extension, explain=None, choose=None, sections=None, followup=None, saved_labels=None, guide=None):
 		self.ask = ask_extension
 		# The defaults answer in the person's language and stream sentences through self._emit.
 		# explain(data, screenshot, task) -> spoken text
@@ -143,6 +146,11 @@ class Coordinator:
 		self.followup_fn = followup or (
 			lambda *a: llm.followup(llm.default_client(), *a, self.settings["language"], self._emit)
 		)
+		# guide(data, screenshot, goal, steps, choices) -> (element ID in choices or None, instruction, done)
+		self.guide_fn = guide or (
+			lambda ctx, shot, goal, steps, ids: llm.guide(llm.default_client(), ctx, shot, goal, steps, ids, self.settings["language"])
+		)
+		self.guide = None  # {"goal", "steps", "at"} of the task being guided
 		self.settings = parse_settings(None)  # replaced by each request's settings
 		self._emit = None  # sentence callback of the current request, if the client streams
 		self.streamed = False
@@ -181,6 +189,8 @@ class Coordinator:
 				return self.explain(req["elementId"])
 			if kind == "report" and isinstance(req.get("elementId"), str):
 				return self.report(req["elementId"])
+			if kind == "guide_next":
+				return self.guide_step()
 			if kind == "label":
 				return self.toggle_label()
 			if kind == "summarize":
@@ -214,6 +224,9 @@ class Coordinator:
 					return self.find(query.strip())
 				if kind == "followup":
 					return self.followup(query.strip())
+				if kind == "guide":
+					self.guide = {"goal": query.strip(), "steps": [], "at": time.monotonic()}
+					return self.guide_step()
 			return {"status": "error", "code": "bad_request", "message": "bad request"}
 		except Blocked:
 			return info("blocked", "Copilot is turned off for this site in the NVDA settings")
@@ -305,6 +318,33 @@ class Coordinator:
 		self.section_ids = {element_id for element_id, _ in picked}
 		self._remember("summarize", data, shot, None, "Parts of the page: " + "; ".join(t for _, t in picked))
 		return {"status": "sections", "sections": [{"elementId": i, "title": t} for i, t in picked]}
+
+	def guide_step(self):
+		"""The next step toward the person's goal. The model may only point at an element the extension
+		listed, focus is the only action, and the person does the step themselves."""
+		guide = self.guide
+		if not guide or time.monotonic() - guide["at"] > GUIDE_TTL_S:
+			self.guide = None
+			return info("no_guide", "no guided task is running; start one first")
+		if len(guide["steps"]) >= MAX_GUIDE_STEPS:
+			self.guide = None
+			return info("guide_too_long", "the guided task took too many steps and is stopped")
+		ctx = self._page({"type": "outline"})
+		# What the person's last action did; its screenshot would only repeat the outline's.
+		changes = self._page({"type": "changes", "screenshot": False})["changes"]
+		outline = ctx["outline"]
+		choices = sorted({item["id"] for part in ("headings", "landmarks", "controls") for item in outline[part]})
+		data = redact({"page": ctx["page"], "outline": outline, "changesSinceLastStep": changes})
+		shot = ctx.get("screenshot")
+		element_id, instruction, done = self.guide_fn(data, shot, guide["goal"], list(guide["steps"]), choices)
+		guide["steps"].append({"instruction": instruction, "elementId": element_id})
+		guide["at"] = time.monotonic()
+		log.info("guide step %s -> %s done=%s", len(guide["steps"]), element_id, done)
+		focused = bool(self.ask({"type": "focus", "elementId": element_id}).get("focused")) if element_id else None
+		if done:
+			self.guide = None
+		self._remember("summarize", data, shot, guide["goal"], instruction)
+		return {"status": "guide", "text": instruction, "elementId": element_id, "focused": focused, "done": done}
 
 	def followup(self, question):
 		last = self.last

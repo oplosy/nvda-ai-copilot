@@ -103,6 +103,30 @@ msgstr "Bu öğe için kayıtlı AI yorumu silindi"
 msgid "Saves the last element explanation for this site, or deletes a saved one"
 msgstr "Son öğe açıklamasını bu site için kaydeder ya da kayıtlı olanı siler"
 
+msgid "No guided task is running; start one first"
+msgstr "Süren bir rehberli görev yok; önce bir görev başlat"
+
+msgid "The guided task took too many steps and is stopped"
+msgstr "Rehberli görev çok fazla adım sürdü ve durduruldu"
+
+msgid "Copilot: working out the next step"
+msgstr "Copilot: sonraki adım hazırlanıyor"
+
+msgid "The guided task is over."
+msgstr "Rehberli görev bitti."
+
+msgid "When you have done it, ask for the next step."
+msgstr "Bunu yaptıktan sonra sonraki adımı iste."
+
+msgid "Starts a guided task: AI tells each step and moves focus, you act"
+msgstr "Rehberli görev başlatır: AI her adımı söyler ve odağı taşır, işlemi sen yaparsın"
+
+msgid "What do you want to do on this page?"
+msgstr "Bu sayfada ne yapmak istiyorsun?"
+
+msgid "Asks for the next step of the guided task"
+msgstr "Rehberli görevin sonraki adımını ister"
+
 msgid "Explains the navigator object with AI"
 msgstr "Navigator nesnesini AI ile açıklar"
 

@@ -5,6 +5,8 @@ import logging
 
 import anthropic
 
+import secret
+
 log = logging.getLogger("coordinator")
 
 MODEL = "claude-opus-5-5"
@@ -120,6 +122,8 @@ def build_request(context, screenshot_b64, task="explain", user_request=None, ch
 TIMEOUT_S = 20
 
 _client = None
+_client_key = None
+NO_KEY_HINT = "NVDA menüsü > Tercihler > Ayarlar > NVDA AI Copilot (veya ANTHROPIC_API_KEY)"
 
 
 class LLMError(Exception):
@@ -127,13 +131,21 @@ class LLMError(Exception):
 
 
 def default_client():
-	"""Created on first use, so the coordinator starts even before a key is configured."""
-	global _client
-	if _client is None:
+	"""Created on first use and again when the saved key changes, so a key entered in NVDA
+	works without restarting Chrome."""
+	global _client, _client_key
+	try:
+		key = secret.load_key()
+	except OSError as e:
+		log.warning("saved API key could not be decrypted: %s", e)
+		raise LLMError(f"kayıtlı API anahtarı okunamadı, yeniden gir: {NO_KEY_HINT}") from None
+	if _client is None or key != _client_key:
 		try:
-			_client = anthropic.Anthropic(timeout=TIMEOUT_S, max_retries=1)
+			# api_key=None makes the SDK fall back to ANTHROPIC_API_KEY.
+			_client = anthropic.Anthropic(api_key=key, timeout=TIMEOUT_S, max_retries=1)
 		except anthropic.AnthropicError as e:
 			raise LLMError(f"Anthropic istemcisi oluşturulamadı: {e}") from None
+		_client_key = key
 	return _client
 
 
@@ -156,7 +168,7 @@ def _text(client, request):
 	try:
 		response = client.beta.messages.create(**request)
 	except anthropic.AuthenticationError:
-		raise LLMError("Anthropic API anahtarı geçersiz veya tanımlı değil (ANTHROPIC_API_KEY)") from None
+		raise LLMError(f"Anthropic API anahtarı geçersiz veya tanımlı değil: {NO_KEY_HINT}") from None
 	except anthropic.RateLimitError:
 		raise LLMError("API hız sınırına takıldı, biraz sonra tekrar dene") from None
 	except anthropic.APIStatusError as e:
@@ -168,7 +180,7 @@ def _text(client, request):
 	except TypeError as e:
 		# The SDK raises TypeError at request time when no credential source resolves.
 		log.warning("Claude request failed: %s", e)
-		raise LLMError("Anthropic kimlik bilgisi bulunamadı (ANTHROPIC_API_KEY tanımlı mı?)") from None
+		raise LLMError(f"Anthropic API anahtarı tanımlı değil: {NO_KEY_HINT}") from None
 	if response.stop_reason == "refusal":
 		raise LLMError("model bu öğe için yanıt vermedi")
 	text = " ".join(b.text for b in response.content if b.type == "text").strip()

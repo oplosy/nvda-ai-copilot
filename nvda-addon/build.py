@@ -7,7 +7,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 FILES = {
 	"manifest.ini": HERE / "manifest.ini",
-	"globalPlugins/nvdaAiCopilot.py": HERE / "globalPlugins" / "nvdaAiCopilot.py",
+	"globalPlugins/nvdaAiCopilot/__init__.py": HERE / "globalPlugins" / "nvdaAiCopilot" / "__init__.py",
+	# One key store implementation for the add-on and the coordinator.
+	"globalPlugins/nvdaAiCopilot/secret.py": HERE.parent / "coordinator" / "secret.py",
 }
 
 

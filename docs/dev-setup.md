@@ -42,9 +42,10 @@ as untrusted data inside `<page_data>`.
    cd coordinator; python -m venv .venv; .venv\Scripts\python -m pip install -r requirements.txt
    ```
 
-2. API key: set `ANTHROPIC_API_KEY` as a **user** environment variable (System → Environment
-   Variables), then restart Chrome fully. Chrome starts the coordinator, so the coordinator only
-   sees variables Chrome was started with.
+2. API key: enter it in NVDA → Preferences → Settings → NVDA AI Copilot (after step 6). It is
+   stored DPAPI-encrypted in `%LOCALAPPDATA%\nvda-ai-copilot\api-key.bin` (`coordinator/secret.py`)
+   and picked up without restarting Chrome. Without a saved key the coordinator falls back to the
+   `ANTHROPIC_API_KEY` user environment variable, which only reaches it after a full Chrome restart.
 3. Chrome → `chrome://extensions` → Developer mode → *Load unpacked* → select `extension/`.
    The ID is always `ijifaphfddholfknhblhfnoajaekjgnj` (pinned by `key` in the manifest).
 4. Register the native host (the ID argument is only needed if you change the key):
@@ -86,3 +87,15 @@ cd coordinator; .venv\Scripts\python -m unittest
 npm install
 node --test "extension/*.test.js"
 ```
+
+## Release build
+
+```powershell
+cd coordinator; .venv\Scripts\python build_dist.py
+python nvda-addon\build.py
+```
+
+`build_dist.py` writes `coordinator/dist/nvda-ai-copilot-coordinator.zip`: python.org's embedded
+Python 3.12.10 (SHA-256 pinned), the packages installed in the dev venv (`pip freeze`), the
+coordinator and `install.bat` / `uninstall.bat` from `coordinator/package/`. `run_host.bat` uses the
+dev `.venv` when it exists and the embedded Python otherwise. End-user steps: `docs/install.md`.

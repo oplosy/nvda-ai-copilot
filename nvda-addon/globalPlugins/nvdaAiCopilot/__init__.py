@@ -14,9 +14,12 @@ import gui
 import queueHandler
 import ui
 import wx
+from gui import guiHelper, settingsDialogs
 from logHandler import log
 from NVDAObjects.IAccessible import IAccessible
 from scriptHandler import script
+
+from . import secret  # copied from coordinator/secret.py by build.py
 
 SESSION_FILE = os.path.join(os.environ["LOCALAPPDATA"], "nvda-ai-copilot", "session.json")
 REQUEST_TIMEOUT_S = 5
@@ -145,7 +148,52 @@ def _webNavigator():
 	return obj
 
 
+class CopilotSettingsPanel(settingsDialogs.SettingsPanel):
+	"""NVDA settings category for the Anthropic API key; the key is stored DPAPI-encrypted."""
+
+	title = "NVDA AI Copilot"
+
+	def makeSettings(self, settingsSizer):
+		helper = guiHelper.BoxSizerHelper(self, sizer=settingsSizer)
+		label = "Anthropic API anahtarı"
+		if secret.has_key():
+			label += " (kayıtlı bir anahtar var; değiştirmek için yenisini yapıştır)"
+		self.keyEdit = helper.addLabeledControl(label, wx.TextCtrl, style=wx.TE_PASSWORD)
+		self.deleteCheck = helper.addItem(wx.CheckBox(self, label="Kayıtlı anahtarı sil"))
+
+	def isValid(self):
+		key = self.keyEdit.GetValue().strip()
+		if key and not secret.valid_key(key):
+			gui.messageBox(
+				"API anahtarı geçersiz görünüyor: boşluk veya Türkçe karakter içermemeli.",
+				"NVDA AI Copilot",
+				wx.OK | wx.ICON_ERROR,
+				self,
+			)
+			return False
+		return super().isValid()
+
+	def onSave(self):
+		key = self.keyEdit.GetValue().strip()
+		try:
+			if key:
+				secret.save_key(key)
+			elif self.deleteCheck.IsChecked():
+				secret.delete_key()
+		except OSError as e:
+			log.error(f"nvdaAiCopilot: API key could not be saved: {e}")
+			gui.messageBox("API anahtarı kaydedilemedi, NVDA loguna bak.", "NVDA AI Copilot", wx.OK | wx.ICON_ERROR)
+
+
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
+	def __init__(self):
+		super().__init__()
+		settingsDialogs.NVDASettingsDialog.categoryClasses.append(CopilotSettingsPanel)
+
+	def terminate(self):
+		settingsDialogs.NVDASettingsDialog.categoryClasses.remove(CopilotSettingsPanel)
+		super().terminate()
+
 	# shortcut: NVDA+Alt+Shift gestures until the add-on is packaged and the final shortcuts are chosen.
 	@script(description="NVDA AI Copilot: explain the navigator object with AI", gesture="kb:NVDA+alt+shift+e")
 	def script_explain(self, gesture):

@@ -8,7 +8,7 @@ Needs `npm install` at the repo root and, unless --dry-run, an Anthropic API key
 or ANTHROPIC_API_KEY), or with --local-model a running local server instead. Every run calls the
 model once per case.
 
-    coordinator\\.venv\\Scripts\\python eval\\run.py [--model MODEL] [--only CASE_ID] [--dry-run]
+    coordinator\\.venv\\Scripts\\python eval\\run.py [--model claude-haiku-5-5] [--only CASE_ID] [--dry-run]
     coordinator\\.venv\\Scripts\\python eval\\run.py --local-model qwen2.5vl:7b [--local-url URL]
 """
 
@@ -70,7 +70,7 @@ def dry_run_coordinator(ask):
 
 def main():
 	parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-	parser.add_argument("--model", help=f"model to test instead of {llm.MODEL}")
+	parser.add_argument("--model", choices=llm.MODELS, default=llm.MODEL, help=f"Claude model (default {llm.MODEL})")
 	parser.add_argument("--only", help="run one case")
 	parser.add_argument("--dry-run", action="store_true", help="check the cases without calling the API")
 	parser.add_argument("--local-model", help="test a model on a local OpenAI-compatible server (for example qwen2.5vl:7b) instead of Claude")
@@ -78,14 +78,12 @@ def main():
 	args = parser.parse_args()
 	# Redirected to a file, stdout uses the Windows code page; a character outside it must not end the run.
 	sys.stdout.reconfigure(errors="replace")
-	if args.model:
-		llm.MODEL = args.model
-	settings = {"language": "tr"}
+	settings = {"language": "tr", "model": args.model}
 	if args.local_model:
 		settings.update(provider="local", localUrl=args.local_url, localModel=args.local_model)
 		if not llm.local_url_ok(args.local_url):
 			sys.exit("--local-url must be on this computer (localhost or 127.0.0.1)")
-	model = f"{args.local_model} at {args.local_url}" if args.local_model else llm.MODEL
+	model = f"{args.local_model} at {args.local_url}" if args.local_model else args.model
 	cases = json.loads(subprocess.run(["node", str(ROOT / "eval" / "extract.js")], check=True, capture_output=True, text=True, encoding="utf-8").stdout)
 	cases = [c for c in cases if not args.only or c["id"] == args.only]
 	if not cases:

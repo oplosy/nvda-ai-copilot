@@ -154,6 +154,18 @@ msgstr "Yerel model adı (görüntü okuyabilmeli)"
 msgid "Enter a local model name and a server address on this computer (localhost or 127.0.0.1)."
 msgstr "Bir yerel model adı ve bu bilgisayardaki bir sunucu adresi gir (localhost veya 127.0.0.1)."
 
+msgid "Claude model"
+msgstr "Claude modeli"
+
+msgid "Haiku 5.5: fastest, about 40 times cheaper than Opus"
+msgstr "Haiku 5.5: en hızlı, Opus'tan yaklaşık 40 kat ucuz"
+
+msgid "Sonnet 5.5: balanced"
+msgstr "Sonnet 5.5: dengeli"
+
+msgid "Opus 5.5: most capable, most expensive"
+msgstr "Opus 5.5: en yetenekli, en pahalı"
+
 msgid "Explains the navigator object with AI"
 msgstr "Navigator nesnesini AI ile açıklar"
 

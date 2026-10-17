@@ -13,7 +13,7 @@ CONTEXT = {"page": PAGE, "element": {"tag": "div"}, "screenshot": "shot"}
 
 class SettingsTest(unittest.TestCase):
 	def test_malformed_settings_fall_back_to_defaults(self):
-		default = {"screenshots": True, "blockedSites": [], "language": "tr", "provider": "claude", "localUrl": "", "localModel": ""}
+		default = {"screenshots": True, "blockedSites": [], "language": "tr", "provider": "claude", "model": "claude-opus-5-5", "localUrl": "", "localModel": ""}
 		for raw in (None, "x", {"screenshots": "no", "blockedSites": "bank.example", "language": "../etc"}):
 			self.assertEqual(parse_settings(raw), default)
 
@@ -22,7 +22,7 @@ class SettingsTest(unittest.TestCase):
 		self.assertEqual(site_host("*.bank.example"), "bank.example")
 		self.assertIsNone(site_host("not a site"))
 		s = parse_settings({"blockedSites": ["bank.example", "bad site", 5], "screenshots": False, "language": "pt_BR"})
-		self.assertEqual(s, {"screenshots": False, "blockedSites": ["bank.example"], "language": "pt_BR", "provider": "claude", "localUrl": "", "localModel": ""})
+		self.assertEqual(s, {"screenshots": False, "blockedSites": ["bank.example"], "language": "pt_BR", "provider": "claude", "model": "claude-opus-5-5", "localUrl": "", "localModel": ""})
 
 	def test_blocked_site_never_reaches_the_model(self):
 		c = Coordinator(lambda msg: dict(CONTEXT), explain=lambda *a: self.fail("model called"))
@@ -49,6 +49,37 @@ class SettingsTest(unittest.TestCase):
 		for language in ("tr", "tr", "en"):
 			c.handle({"type": "explain", "elementId": "e_1", "settings": {"language": language}})
 		self.assertEqual(len(calls), 2)
+
+
+class ModelChoiceTest(unittest.TestCase):
+	def test_chosen_model_is_used_and_fallback_sent_only_where_it_exists(self):
+		haiku = llm.build_request({}, None, "explain", model="claude-haiku-5-5")
+		self.assertEqual(haiku["model"], "claude-haiku-5-5")
+		self.assertNotIn("fallbacks", haiku)  # Haiku 5.5 has no server-side fallback; sending it fails
+		self.assertNotIn("betas", haiku)
+		for model in ("claude-sonnet-5-5", "claude-opus-5-5"):
+			req = llm.build_request({}, None, "explain", model=model)
+			self.assertEqual((req["fallbacks"], req["betas"]), ("default", [llm.FALLBACK_BETA]))
+
+	def test_unknown_model_falls_back_to_the_default(self):
+		self.assertEqual(parse_settings({"model": "claude-haiku-5-5"})["model"], "claude-haiku-5-5")
+		self.assertEqual(parse_settings({"model": "gpt-x"})["model"], llm.MODEL)
+
+	def test_model_reaches_the_request_and_the_cache_key(self):
+		sent = []
+
+		class Client:
+			beta = SimpleNamespace(messages=SimpleNamespace(create=lambda **kw: sent.append(kw) or SimpleNamespace(
+				stop_reason="end_turn", content=[SimpleNamespace(type="text", text="Bir düğme.")]
+			)))
+
+		from unittest import mock
+
+		with mock.patch.object(llm, "client_for", return_value=Client()):
+			c = Coordinator(lambda msg: json.loads(json.dumps(CONTEXT)))
+			for model in ("claude-haiku-5-5", "claude-haiku-5-5", "claude-opus-5-5"):
+				c.handle({"type": "explain", "elementId": "e_1", "settings": {"model": model}})
+		self.assertEqual([r["model"] for r in sent], ["claude-haiku-5-5", "claude-opus-5-5"])  # second one cached
 
 
 class StreamingTest(unittest.TestCase):

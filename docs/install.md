@@ -25,6 +25,10 @@ Shortcuts can be changed in NVDA's Input gestures dialog, category NVDA AI Copil
 **Privacy settings** (same NVDA settings page): turn off *Send screenshots to the AI* and no
 screenshot is taken; list sites (for example your bank) where Copilot sends nothing.
 
+**Claude model** (same settings page): Haiku 5.5 is the fastest and about 40 times cheaper than
+Opus 5.5; Opus 5.5 is the most capable. A summary costs roughly 0.06 cents with Haiku and 2.5 cents
+with Opus, billed to your Anthropic account.
+
 **Local model** (optional, nothing leaves the computer): install an OpenAI-compatible server such as
 [Ollama](https://ollama.com/), pull a model that can read images, then in the same settings page
 choose *Local model server on this computer* and enter its address (Ollama:

@@ -44,6 +44,8 @@ and it warns before steps that pay, order, submit, send or delete.
   pixels.
 - In NVDA settings you can turn screenshots off (then none is taken) and list sites where Copilot
   sends nothing at all.
+- Choose the Claude model by cost: Haiku 5.5 (fastest, about 40 times cheaper), Sonnet 5.5 or
+  Opus 5.5 (most capable).
 - Or use a local model instead of Claude: any OpenAI-compatible server on this computer (Ollama,
   LM Studio, llama.cpp) with a model that reads images. Only localhost addresses are accepted, and
   a broken local setup is an error, never a silent switch to the cloud.

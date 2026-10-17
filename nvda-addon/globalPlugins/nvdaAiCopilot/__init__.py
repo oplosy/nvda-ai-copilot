@@ -44,10 +44,13 @@ config.conf.spec[CONF_SECTION] = {
 	"sendScreenshots": "boolean(default=True)",
 	"blockedSites": "string(default='')",  # host names separated by spaces
 	"provider": "string(default='claude')",  # claude or local
+	"model": "string(default='claude-opus-5-5')",  # one of MODELS
 	"localUrl": "string(default='http://127.0.0.1:11434/v1')",  # Ollama's OpenAI-compatible address
 	"localModel": "string(default='')",
 }
 PROVIDERS = ("claude", "local")
+# Same list and order as the coordinator's llm.MODELS: cheapest and fastest first.
+MODELS = ("claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5")
 
 
 def _navContext(obj):
@@ -74,6 +77,7 @@ def _settings():
 		"blockedSites": conf["blockedSites"].split(),
 		"language": languageHandler.getLanguage(),
 		"provider": conf["provider"],
+		"model": conf["model"],
 		"localUrl": conf["localUrl"],
 		"localModel": conf["localModel"],
 	}
@@ -388,6 +392,18 @@ class CopilotSettingsPanel(settingsDialogs.SettingsPanel):
 			choices=[_("Claude (Anthropic, over the internet)"), _("Local model server on this computer")],
 		)
 		self.providerChoice.SetSelection(PROVIDERS.index(conf["provider"]) if conf["provider"] in PROVIDERS else 0)
+		self.modelChoice = helper.addLabeledControl(
+			# Translators: label of the choice of Claude model.
+			_("Claude model"),
+			wx.Choice,
+			choices=[
+				# Translators: Claude model choices, cheapest first.
+				_("Haiku 5.5: fastest, about 40 times cheaper than Opus"),
+				_("Sonnet 5.5: balanced"),
+				_("Opus 5.5: most capable, most expensive"),
+			],
+		)
+		self.modelChoice.SetSelection(MODELS.index(conf["model"]) if conf["model"] in MODELS else len(MODELS) - 1)
 		# Translators: label of the local model server address field.
 		self.localUrlEdit = helper.addLabeledControl(_("Local server address (OpenAI-compatible, for example Ollama)"), wx.TextCtrl)
 		self.localUrlEdit.SetValue(conf["localUrl"])
@@ -422,6 +438,7 @@ class CopilotSettingsPanel(settingsDialogs.SettingsPanel):
 		conf["sendScreenshots"] = self.screenshotsCheck.IsChecked()
 		conf["blockedSites"] = " ".join(dict.fromkeys(_siteHost(s) for s in self._siteEntries()))
 		conf["provider"] = PROVIDERS[self.providerChoice.GetSelection()]
+		conf["model"] = MODELS[self.modelChoice.GetSelection()]
 		conf["localUrl"] = self.localUrlEdit.GetValue().strip()
 		conf["localModel"] = self.localModelEdit.GetValue().strip()
 		key = self.keyEdit.GetValue().strip()

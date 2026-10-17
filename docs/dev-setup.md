@@ -132,9 +132,15 @@ per case; `--model` compares another model.
 
 ```powershell
 coordinator\.venv\Scripts\python eval\run.py --dry-run
+coordinator\.venv\Scripts\python eval\run.py --model claude-haiku-5-5
 coordinator\.venv\Scripts\python eval\run.py
 coordinator\.venv\Scripts\python eval\run.py --local-model qwen2.5vl:7b
 ```
+
+Claude model: NVDA settings offer Haiku 5.5, Sonnet 5.5 and Opus 5.5 (default until the eval shows
+a cheaper one holds up). Approximate cost per summarize request (about 4K input tokens with the
+screenshot, 400 output tokens with thinking): Opus 5.5 2.5 cents, Haiku 5.5 0.06 cents. The
+server-side refusal fallback is only sent to Opus and Sonnet; Haiku 5.5 has none.
 
 `--local-model` runs the same cases on a local OpenAI-compatible server (default address
 `http://127.0.0.1:11434/v1`, Ollama; `--local-url` for another one on this computer), so a local

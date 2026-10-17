@@ -4,6 +4,7 @@ Chrome starts it as the native messaging host (stdio). It also serves the NVDA a
 127.0.0.1 with one JSON line per request, authenticated by a token in the session file.
 """
 
+import hashlib
 import hmac
 import json
 import logging
@@ -14,6 +15,7 @@ import socketserver
 import sys
 import threading
 import time
+from collections import OrderedDict
 from pathlib import Path
 
 import llm
@@ -30,6 +32,10 @@ MAX_REQUEST_BYTES = 64 * 1024
 MAX_QUERY_CHARS = 300
 # A follow-up is about the answer the person just heard; after this the page has likely moved on.
 FOLLOWUP_TTL_S = 300
+# Same element, same state, same answer: repeat questions are spoken at once and cost nothing.
+CACHED_TASKS = {"explain"}
+CACHE_SIZE = 200
+CACHE_TTL_S = 30 * 60
 
 log = logging.getLogger("coordinator")
 
@@ -86,6 +92,7 @@ class Coordinator:
 		self.pending = None  # (nonce, snapshot) of the marking round the add-on is polling
 		self.last = None  # model input and turns of the last AI answer, for follow-up questions
 		self.section_ids = set()  # IDs of the last section list: the only elements "focus" may move to
+		self.cache = OrderedDict()  # hash of task and redacted model data -> (answer, time)
 
 	def handle(self, req):
 		kind = req.get("type")
@@ -184,8 +191,19 @@ class Coordinator:
 		data = redact({"page": ctx["page"], key: ctx[key]})
 		shot = ctx.get("screenshot")
 		log.info("%s: screenshot=%s chars, data=%s chars", task, len(shot or ""), len(json.dumps(data)))
-		text = self.explain_fn(data, shot, task)
-		log.info("%s -> %s chars", task, len(text))
+		key = hashlib.sha256(json.dumps([task, data], sort_keys=True).encode()).hexdigest() if task in CACHED_TASKS else None
+		hit = self.cache.get(key)
+		if hit and time.monotonic() - hit[1] < CACHE_TTL_S:
+			self.cache.move_to_end(key)
+			text = hit[0]
+			log.info("%s -> cached", task)
+		else:
+			text = self.explain_fn(data, shot, task)
+			log.info("%s -> %s chars", task, len(text))
+			if key:
+				self.cache[key] = (text, time.monotonic())
+				while len(self.cache) > CACHE_SIZE:
+					self.cache.popitem(last=False)
 		self._remember(task, data, shot, None, text)
 		return text
 

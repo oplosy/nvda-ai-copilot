@@ -138,5 +138,33 @@ class FollowupTest(unittest.TestCase):
 		self.assertEqual(req["messages"][-1]["content"], "<user_request>\nbaşka?\n</user_request>")
 
 
+class CacheTest(unittest.TestCase):
+	def test_same_element_is_answered_once_until_it_expires(self):
+		ctx = {"page": PAGE, "element": {"tag": "div", "states": {"expanded": "false"}}, "screenshot": "shot"}
+		calls = []
+		c = Coordinator(lambda msg: json.loads(json.dumps(ctx)), explain=lambda *a: calls.append(a) or f"Cevap {len(calls)}")
+		self.assertEqual(c.handle({"type": "explain", "elementId": "e_1"})["text"], "Cevap 1")
+		self.assertEqual(c.handle({"type": "explain", "elementId": "e_1"})["text"], "Cevap 1")
+		ctx["element"]["states"]["expanded"] = "true"  # changed state is a new question
+		self.assertEqual(c.handle({"type": "explain", "elementId": "e_1"})["text"], "Cevap 2")
+		later = time_after(host.CACHE_TTL_S + 1)
+		with mock.patch.object(host.time, "monotonic", return_value=later):
+			self.assertEqual(c.handle({"type": "explain", "elementId": "e_1"})["text"], "Cevap 3")
+
+	def test_page_level_answers_are_not_cached(self):
+		ctx = {"page": PAGE, "outline": {"mainText": "x"}}
+		calls = []
+		c = Coordinator(lambda msg: dict(ctx), explain=lambda *a: calls.append(a) or "Özet")
+		c.handle({"type": "summarize"})
+		c.handle({"type": "summarize"})
+		self.assertEqual(len(calls), 2)
+
+
+def time_after(seconds):
+	import time
+
+	return time.monotonic() + seconds
+
+
 if __name__ == "__main__":
 	unittest.main()

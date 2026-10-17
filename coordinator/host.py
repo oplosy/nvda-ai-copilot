@@ -186,6 +186,11 @@ class Coordinator:
 				if not ctx.get("table"):
 					return info("no_table", "there is no table in or around this element")
 				return {"status": "explained", "text": self._ask_model(ctx, "table", "table")}
+			if kind == "chart" and isinstance(req.get("elementId"), str):
+				ctx = self._page({"type": "chart", "elementId": req["elementId"]})
+				if not ctx.get("chart"):
+					return info("no_chart", "there is no chart drawn as SVG in or around this element")
+				return {"status": "explained", "text": self._ask_model(ctx, "chart", "chart")}
 			if kind == "changes":
 				ctx = self._page({"type": "changes"})
 				if not ctx["changes"]["items"]:

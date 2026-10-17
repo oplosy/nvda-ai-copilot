@@ -147,6 +147,7 @@ def _messages():
 		# Translators: spoken when the user turned Copilot off for the current site.
 		"blocked": _("Copilot is turned off for this site in the NVDA settings"),
 		"no_table": _("There is no table in or around this element"),
+		"no_chart": _("There is no chart drawn as SVG in or around this element"),
 		"no_changes": _("Nothing visible changed since the last click or key press"),
 		"no_sections": _("The page could not be split into parts"),
 		"no_followup": _("A follow-up question is about the last AI answer; use an AI command first"),
@@ -373,6 +374,14 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		obj = _webNavigator()
 		if obj:
 			onMatched = lambda located: _askModel({"type": "table", "elementId": located["elementId"]})  # noqa: E731
+			self._locate(obj, {"type": "locate", "nav": _navContext(obj)}, onMatched)
+
+	# Translators: input gesture description.
+	@script(description=_("Explains the chart around the navigator object with AI"), gesture="kb:NVDA+alt+shift+d")
+	def script_chart(self, gesture):
+		obj = _webNavigator()
+		if obj:
+			onMatched = lambda located: _askModel({"type": "chart", "elementId": located["elementId"]})  # noqa: E731
 			self._locate(obj, {"type": "locate", "nav": _navContext(obj)}, onMatched)
 
 	# Translators: input gesture description.

@@ -29,7 +29,7 @@ globalThis.elementId = (el) => ids.get(el) || (ids.set(el, `e_${Math.random()}`)
 
 const { elementId: _unused, ...frameHelpers } = require('./grounding.js');
 Object.assign(globalThis, frameHelpers); // content scripts share one scope
-const { describeElement, pageOutline, formContext, tableContext, sensitiveRects } = require('./context.js');
+const { describeElement, pageOutline, formContext, tableContext, chartContext, sensitiveRects } = require('./context.js');
 
 document.getElementById('name').value = 'TYPED-NAME';
 document.getElementById('pw').value = 'TYPED-PASSWORD';
@@ -110,4 +110,28 @@ test('an icon button is described by the name of the field next to it, never its
   const nearby = describeElement(document.getElementById('sb')).nearby;
   assert.strictEqual(nearby.before, 'Ürün ara');
   assert.ok(!JSON.stringify(nearby).includes('TYPED-SEARCH'));
+});
+
+test('chart data: texts and marks with positions from the chart corner, labels and fills', () => {
+  document.body.insertAdjacentHTML(
+    'beforeend',
+    `<figure><svg id="sales" aria-label="Aylık satış"><text>Ocak</text><text>Şubat</text>
+      <rect class="bar" fill="#36c"><title>Ocak: 40</title></rect><rect class="bar" fill="#36c"></rect></svg>
+      <figcaption>2026 satışları</figcaption></figure>`,
+  );
+  const svg = document.getElementById('sales');
+  const place = (el, x, y, w, h) => (el.getBoundingClientRect = () => ({ x, y, width: w, height: h }));
+  place(svg, 100, 200, 300, 150);
+  const [jan, feb] = svg.querySelectorAll('text');
+  place(jan, 120, 330, 30, 12);
+  place(feb, 220, 330, 30, 12);
+  const [b1, b2] = svg.querySelectorAll('rect');
+  place(b1, 120, 250, 30, 80);
+  place(b2, 220, 290, 30, 40);
+  const c = chartContext(b2);
+  assert.deepStrictEqual([c.title, c.caption, c.size, c.markCount], ['Aylık satış', '2026 satışları', [300, 150], 2]);
+  assert.deepStrictEqual(c.texts, [{ text: 'Ocak', at: [20, 130, 30, 12] }, { text: 'Şubat', at: [120, 130, 30, 12] }]);
+  assert.deepStrictEqual(c.marks[0], { shape: 'rect', at: [20, 50, 30, 80], label: 'Ocak: 40', fill: '#36c' });
+  assert.deepStrictEqual(c.marks[1], { shape: 'rect', at: [120, 90, 30, 40], fill: '#36c' });
+  assert.strictEqual(chartContext(document.querySelector('h1')), null);
 });

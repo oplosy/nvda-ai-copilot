@@ -313,6 +313,48 @@ function tableContext(el) {
   };
 }
 
+const CHART_MARKS = 'rect, circle, ellipse, path, line, polyline, polygon';
+const CHART_MARK_LIMIT = 200;
+const CHART_TEXT_LIMIT = 120;
+
+// Geometry of the SVG chart around (or inside) el: its texts (axis ticks, legend, data labels) and
+// its marks (bars, points, lines) with [x, y, width, height] in px from the chart's top-left, plus
+// each mark's own label and fill, so the model reads values from the axes instead of guessing from
+// pixels. Null if there is no SVG.
+function chartContext(el) {
+  const svg = el.closest('svg') || el.querySelector('svg');
+  if (!svg) return null;
+  const box = topRect(svg);
+  const at = (n) => {
+    const [x, y, w, h] = topRect(n);
+    return [x - box[0], y - box[1], w, h].map(Math.round);
+  };
+  const label = (n) => clip(n.getAttribute('aria-label') || n.querySelector(':scope > title')?.textContent || '', 80);
+  const texts = Array.from(svg.querySelectorAll('text'), (t) => ({ text: clip(t.textContent, 60), at: at(t) }))
+    .filter((t) => t.text)
+    .slice(0, CHART_TEXT_LIMIT);
+  const marks = Array.from(svg.querySelectorAll(CHART_MARKS))
+    .filter(isVisible)
+    .slice(0, CHART_MARK_LIMIT)
+    .map((m) => {
+      const mark = { shape: m.tagName.toLowerCase(), at: at(m) };
+      const name = label(m);
+      if (name) mark.label = name;
+      if (m.getAttribute('fill')) mark.fill = m.getAttribute('fill');
+      return mark;
+    });
+  const figure = svg.closest('figure');
+  return {
+    title: clip(label(svg) || svg.querySelector('desc')?.textContent || '', 150),
+    caption: figure ? safeText(figure.querySelector('figcaption'), 150) : '',
+    size: [Math.round(box[2]), Math.round(box[3])],
+    texts,
+    marks,
+    markCount: svg.querySelectorAll(CHART_MARKS).length,
+    rect: box,
+  };
+}
+
 // Move keyboard focus (and so NVDA's browse-mode cursor) to el. Non-focusable elements get a
 // temporary tabindex=-1 that is removed again when focus leaves. Returns whether focus landed.
 function focusElement(el) {
@@ -359,4 +401,4 @@ function cropBox(rect, viewport, scale, margin = 120) {
 }
 
 if (typeof module !== 'undefined')
-  module.exports = { NO_TEXT, clip, safeText, accessibleName, isVisible, isSensitiveField, describeElement, pageOutline, pageAlerts, pageSections, formContext, tableContext, focusElement, sensitiveRects, cropBox };
+  module.exports = { NO_TEXT, clip, safeText, accessibleName, isVisible, isSensitiveField, describeElement, pageOutline, pageAlerts, pageSections, formContext, tableContext, chartContext, focusElement, sensitiveRects, cropBox };

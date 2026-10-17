@@ -91,6 +91,21 @@ You get a JSON description of the table taken from its DOM: its caption, its fir
 {SPOKEN} Use at most six short sentences. Say what the table is about, what its columns are (infer them from the first rows if no headers are marked), how many rows it has and what stands out. If the person is on a cell, first say what that cell means using its row and column.""",
 		"What does this table show?",
 	),
+	"chart": (
+		f"""You help a blind person who uses the NVDA screen reader understand a chart on a web page.
+
+You get the chart's title and caption, its text labels (axis ticks, legend, data labels) and its \
+marks (bars, points, lines, areas), each with "at" = [x, y, width, height] in pixels from the \
+chart's top-left corner, and a mark's own label and fill color if it has them. You may also get a \
+screenshot. {UNTRUSTED}
+
+Read the values from the geometry: match the ends of bars and the centers of points to the \
+positions of the axis tick labels (y grows downward), and match marks to the legend by fill color. \
+Gridlines and the axes themselves are marks too; ignore them. {SPOKEN} Use at most six short \
+sentences. Say what kind of chart it is and what it shows, its axes, the highest and lowest values \
+and the trend. Say that values read from the geometry are approximate.""",
+		"What does this chart show?",
+	),
 	"changes": (
 		f"""You help a blind person who uses the NVDA screen reader notice what changed on a web page \
 after they clicked or pressed a key, because the page did not announce it.

@@ -155,6 +155,22 @@ class TableTest(unittest.TestCase):
 		self.assertNotIn("4111", json.dumps(seen["data"]))
 
 
+class ChartTest(unittest.TestCase):
+	def test_no_chart_is_said_without_the_model(self):
+		ext = FakeExtension({"chart": {"page": PAGE, "chart": None}})
+		r = Coordinator(ext.ask, explain=lambda *a: self.fail("model called")).handle({"type": "chart", "elementId": "e_3"})
+		self.assertEqual((r["status"], r["code"]), ("info", "no_chart"))
+
+	def test_chart_reaches_the_model(self):
+		chart = {"title": "Satış", "texts": [{"text": "Ocak", "at": [0, 0, 1, 1]}], "marks": [], "markCount": 0}
+		ext = FakeExtension({"chart": {"page": PAGE, "chart": chart}})
+		seen = {}
+		c = Coordinator(ext.ask, explain=lambda data, shot, task: seen.update(data=data, task=task) or "Bir çubuk grafik.")
+		self.assertEqual(c.handle({"type": "chart", "elementId": "e_3"})["text"], "Bir çubuk grafik.")
+		self.assertEqual((set(seen["data"]), seen["task"]), ({"page", "chart"}, "chart"))
+		self.assertIn("approximate", llm.build_request({}, None, "chart")["system"])
+
+
 class CacheTest(unittest.TestCase):
 	def test_same_element_is_answered_once_until_it_expires(self):
 		ctx = {"page": PAGE, "element": {"tag": "div", "states": {"expanded": "false"}}, "screenshot": "shot"}

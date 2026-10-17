@@ -38,7 +38,7 @@ async function handle(msg) {
   const reply = await chrome.tabs.sendMessage(tab.id, msg, { frameId: 0 });
   if (!reply) throw new Error('content script did not answer (reload the page?)');
   // screenshot: false is the person's privacy setting: no capture at all, not just no upload.
-  if (['context', 'outline', 'form', 'table', 'changes', 'sections'].includes(msg.type) && !reply.error && msg.screenshot !== false) {
+  if (['context', 'outline', 'form', 'table', 'chart', 'changes', 'sections'].includes(msg.type) && !reply.error && msg.screenshot !== false) {
     try {
       reply.screenshot = await maskedCrop(tab.windowId, reply);
     } catch (e) {

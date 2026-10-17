@@ -62,6 +62,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       viewport: [innerWidth, innerHeight],
       sensitiveRects: sensitiveRects(all),
     });
+  } else if (msg.type === 'chart') {
+    const el = elementById(msg.elementId);
+    if (!el) {
+      sendResponse({ error: 'element is no longer in the page' });
+      return;
+    }
+    const chart = chartContext(el);
+    sendResponse({
+      page: { origin: location.origin, title: clip(document.title, 150) },
+      chart,
+      rect: chart ? chart.rect : [0, 0, 0, 0],
+      viewport: [innerWidth, innerHeight],
+      sensitiveRects: sensitiveRects(all),
+    });
   } else if (msg.type === 'changes') {
     sendResponse({
       page: { origin: location.origin, title: clip(document.title, 150) },

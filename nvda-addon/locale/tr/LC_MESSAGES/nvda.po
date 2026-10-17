@@ -70,6 +70,12 @@ msgstr "Kayıtlı anahtarı sil"
 msgid "Explains the form around the navigator object with AI"
 msgstr "Navigator nesnesinin bulunduğu formu AI ile açıklar"
 
+msgid "Explains the chart around the navigator object with AI"
+msgstr "Navigator nesnesinin bulunduğu grafiği AI ile açıklar"
+
+msgid "There is no chart drawn as SVG in or around this element"
+msgstr "Bu öğenin içinde veya çevresinde SVG ile çizilmiş bir grafik yok"
+
 msgid "Explains the navigator object with AI"
 msgstr "Navigator nesnesini AI ile açıklar"
 

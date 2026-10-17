@@ -137,14 +137,14 @@ class CoordinatorExplainTest(unittest.TestCase):
 		e = llm.build_request({}, None)
 		self.assertNotEqual(s["system"], e["system"])
 		self.assertIn("untrusted", s["system"])
-		self.assertTrue(s["messages"][0]["content"][-1]["text"].endswith("Bu sayfada ne var?"))
+		self.assertTrue(s["messages"][0]["content"][-1]["text"].endswith("What is on this page?"))
 
 	def test_llm_error_is_reported(self):
 		def failing(data, shot, task):
 			raise llm.LLMError("anahtar yok")
 
 		c = Coordinator(lambda msg: dict(CONTEXT), explain=failing)
-		self.assertEqual(c.handle({"type": "explain", "elementId": "e_7"}), {"status": "error", "message": "anahtar yok"})
+		self.assertEqual(c.handle({"type": "explain", "elementId": "e_7"}), {"status": "error", "code": "ai_error", "message": "anahtar yok"})
 
 
 if __name__ == "__main__":

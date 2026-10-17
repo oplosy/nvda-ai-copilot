@@ -4,13 +4,18 @@
 
 import json
 import os
+import re
 import socket
 import threading
+from urllib.parse import urlsplit
 
+import addonHandler
 import api
+import config
 import core
 import globalPluginHandler
 import gui
+import languageHandler
 import queueHandler
 import ui
 import wx
@@ -21,6 +26,8 @@ from scriptHandler import script
 
 from . import secret  # copied from coordinator/secret.py by build.py
 
+addonHandler.initTranslation()
+
 SESSION_FILE = os.path.join(os.environ["LOCALAPPDATA"], "nvda-ai-copilot", "session.json")
 REQUEST_TIMEOUT_S = 5
 EXPLAIN_TIMEOUT_S = 45  # covers the model call (coordinator: 20 s timeout, one retry, ~41 s worst case)
@@ -29,6 +36,14 @@ MARKER_POLL_MS = 25
 MARKER_POLL_TRIES = 20
 # shortcut: fixed delay so the reason is spoken after NVDA announces the newly focused element; tune from testing.
 FOUND_SPEAK_DELAY_MS = 600
+# Chromium browsers the extension runs in.
+BROWSERS = ("chrome", "msedge")
+
+CONF_SECTION = "nvdaAiCopilot"
+config.conf.spec[CONF_SECTION] = {
+	"sendScreenshots": "boolean(default=True)",
+	"blockedSites": "string(default='')",  # host names separated by spaces
+}
 
 
 def _navContext(obj):
@@ -47,32 +62,48 @@ def _navContext(obj):
 	}
 
 
-def _request(msg, timeout):
+def _settings():
+	"""Sent with every request; the coordinator enforces them before anything reaches the model."""
+	conf = config.conf[CONF_SECTION]
+	return {
+		"screenshots": bool(conf["sendScreenshots"]),
+		"blockedSites": conf["blockedSites"].split(),
+		"language": languageHandler.getLanguage(),
+	}
+
+
+def _request(msg, timeout, onPartial=None):
+	"""One JSON line per reply; "partial" lines carry finished sentences of an answer still being written."""
 	with open(SESSION_FILE, encoding="utf-8") as f:
 		session = json.load(f)
 	with socket.create_connection(("127.0.0.1", session["port"]), timeout=timeout) as s:
-		s.sendall((json.dumps({**msg, "token": session["token"]}) + "\n").encode("utf-8"))
-		line = s.makefile(encoding="utf-8").readline()
-	if not line:
-		raise ValueError("coordinator closed the connection")
-	return json.loads(line)
+		s.sendall((json.dumps({**msg, "settings": _settings(), "token": session["token"]}) + "\n").encode("utf-8"))
+		for line in s.makefile(encoding="utf-8"):
+			reply = json.loads(line)
+			if reply.get("status") != "partial":
+				return reply
+			if onPartial:
+				onPartial(reply["text"])
+	raise ValueError("coordinator closed the connection")
 
 
 def _onMain(func, *args):
 	queueHandler.queueFunction(queueHandler.eventQueue, func, *args)
 
 
-def _call(msg, timeout=REQUEST_TIMEOUT_S):
+def _call(msg, timeout=REQUEST_TIMEOUT_S, onPartial=None):
 	"""Worker-thread request; speaks the failure and returns None on error."""
 	try:
-		reply = _request(msg, timeout)
+		reply = _request(msg, timeout, onPartial)
 	except TimeoutError:
 		log.warning(f"nvdaAiCopilot: {msg['type']} timed out")
-		_onMain(ui.message, "Copilot: yanıt zaman aşımına uğradı")
+		# Translators: spoken when the coordinator did not answer in time.
+		_onMain(ui.message, _("Copilot: the answer timed out"))
 		return None
 	except (OSError, ValueError, KeyError) as e:
 		log.warning(f"nvdaAiCopilot: coordinator request failed: {e}")
-		_onMain(ui.message, "Copilot: koordinatöre ulaşılamadı. Tarayıcı ve eklenti açık mı?")
+		# Translators: spoken when the local coordinator service cannot be reached.
+		_onMain(ui.message, _("Copilot: cannot reach the coordinator. Are the browser and the extension running?"))
 		return None
 	# The NVDA log gets pasted into bug reports, so AI text about the page stays out of it.
 	logged = {k: v for k, v in reply.items() if k != "text"}
@@ -80,50 +111,89 @@ def _call(msg, timeout=REQUEST_TIMEOUT_S):
 	return reply
 
 
+def _aiComment(text):
+	# AI output is always marked, so it is never mistaken for what the page exposes.
+	# Translators: prefix of every AI answer; keep it short and recognizable.
+	return _("AI comment: {text}").format(text=text)
+
+
 def _explainMatched(located):
 	_askModel({"type": "explain", "elementId": located["elementId"]})
 
 
 def _askModel(msg):
-	"""Worker thread: asks the coordinator for model output and speaks it."""
-	_onMain(ui.message, "Copilot: AI'ya soruluyor")
-	reply = _call(msg, EXPLAIN_TIMEOUT_S)
+	"""Worker thread: asks the coordinator for model output and speaks it, sentence by sentence."""
+	# Translators: spoken while waiting for an AI answer.
+	_onMain(ui.message, _("Copilot: asking AI"))
+	spoken = []
+
+	def onPartial(text):
+		_onMain(ui.message, text if spoken else _aiComment(text))
+		spoken.append(text)
+
+	reply = _call(msg, EXPLAIN_TIMEOUT_S, onPartial)
 	if reply is None:
 		return
 	if reply.get("status") == "explained":
-		# AI output is always marked, so it is never mistaken for what the page exposes.
-		_onMain(ui.message, f"AI yorumu: {reply['text']}")
+		if not reply.get("streamed"):
+			_onMain(ui.message, _aiComment(reply["text"]))
 	else:
 		_onMain(ui.message, _describe(reply))
+
+
+def _messages():
+	"""Translated text for the coordinator's info and error codes."""
+	return {
+		# Translators: spoken when the user turned Copilot off for the current site.
+		"blocked": _("Copilot is turned off for this site in the NVDA settings"),
+		"no_table": _("There is no table in or around this element"),
+		"no_changes": _("Nothing visible changed since the last click or key press"),
+		"no_sections": _("The page could not be split into parts"),
+		"no_followup": _("A follow-up question is about the last AI answer; use an AI command first"),
+		"key_missing": _("No Anthropic API key is set. Enter it in NVDA settings, NVDA AI Copilot category"),
+		"key_invalid": _("The Anthropic API key is invalid. Check it in NVDA settings, NVDA AI Copilot category"),
+		"key_unreadable": _("The saved API key could not be read. Enter it again in NVDA settings"),
+		"rate_limit": _("The AI service is busy. Try again shortly"),
+		"connection": _("Cannot reach the AI service. Check the internet connection"),
+		"refusal": _("The AI declined to answer"),
+		"empty": _("The AI gave an empty answer"),
+		"bad_output": _("The AI gave an answer Copilot cannot use"),
+	}
 
 
 def _describe(reply):
 	status = reply.get("status")
 	if status == "matched":
-		return f"Copilot: {reply['elementId']}, {reply.get('tag')}, {reply.get('method')} ile eşlendi"
+		# Translators: debug command result: element ID, tag and how it was matched.
+		return _("Copilot: {id}, {tag}, matched by {method}").format(
+			id=reply["elementId"], tag=reply.get("tag"), method=reply.get("method")
+		)
 	if status == "ambiguous":
-		return f"Copilot: kesin eşlenemedi, {len(reply.get('candidates') or [])} aday"
+		return _("Copilot: no exact match, {count} candidates").format(count=len(reply.get("candidates") or []))
 	if status == "none":
-		return "Copilot: eşleşen öğe bulunamadı"
+		return _("Copilot: no matching element found")
+	text = _messages().get(reply.get("code")) or reply.get("text") or reply.get("message")
 	if status == "info":
-		return f"Copilot: {reply.get('text')}"
-	return f"Copilot hatası: {reply.get('message')}"
+		return _("Copilot: {text}").format(text=text)
+	# Translators: spoken when a command failed; the reason follows.
+	return _("Copilot error: {text}").format(text=text)
 
 
 def _find(query):
 	"""Worker thread: the coordinator picks an element, the extension focuses it, NVDA follows focus."""
-	_onMain(ui.message, "Copilot: aranıyor")
+	# Translators: spoken while the AI looks for what the user asked for.
+	_onMain(ui.message, _("Copilot: searching"))
 	reply = _call({"type": "find", "query": query}, EXPLAIN_TIMEOUT_S)
 	if reply is None:
 		return
 	status = reply.get("status")
 	if status == "found":
-		text = f"AI yorumu: {reply['text']}"
+		text = _aiComment(reply["text"])
 		if not reply.get("focused"):
-			text += " Odak taşınamadı."
+			text += " " + _("Focus could not be moved.")
 		_onMain(core.callLater, FOUND_SPEAK_DELAY_MS, ui.message, text)
 	elif status == "none":
-		_onMain(ui.message, f"AI yorumu: {reply['text']}")
+		_onMain(ui.message, _aiComment(reply["text"]))
 	else:
 		_onMain(ui.message, _describe(reply))
 
@@ -144,7 +214,8 @@ def _askText(prompt, worker):
 
 def _sections():
 	"""Worker thread: the model names the page's parts; the person picks one and focus moves there."""
-	_onMain(ui.message, "Copilot: bölümler çıkarılıyor")
+	# Translators: spoken while the AI splits the page into parts.
+	_onMain(ui.message, _("Copilot: finding the parts of the page"))
 	reply = _call({"type": "sections"}, EXPLAIN_TIMEOUT_S)
 	if reply is None:
 		return
@@ -159,7 +230,8 @@ def _chooseSection(sections):
 	gui.mainFrame.prePopup()
 	dlg = wx.SingleChoiceDialog(
 		gui.mainFrame,
-		"AI yorumu: sayfanın bölümleri. Seçtiğin bölüme odak taşınır.",
+		# Translators: text of the dialog listing the page parts found by AI.
+		_aiComment(_("the parts of the page. Focus moves to the part you choose.")),
 		"NVDA AI Copilot",
 		[s["title"] for s in sections],
 	)
@@ -180,17 +252,14 @@ def _focusSection(elementId):
 	if reply.get("status") != "focused":
 		_onMain(ui.message, _describe(reply))
 	elif not reply.get("focused"):
-		_onMain(ui.message, "Copilot: odak taşınamadı")
-
-
-# Chromium browsers the extension runs in.
-BROWSERS = ("chrome", "msedge")
+		_onMain(ui.message, _("Copilot: focus could not be moved"))
 
 
 def _webNavigator():
 	obj = api.getNavigatorObject()
 	if not isinstance(obj, IAccessible) or obj.appModule.appName not in BROWSERS:
-		ui.message("Copilot: navigator nesnesi bir Chrome veya Edge web öğesi değil")
+		# Translators: spoken when a command needs a web element in Chrome or Edge.
+		ui.message(_("Copilot: the navigator object is not a web element in Chrome or Edge"))
 		return None
 	return obj
 
@@ -198,36 +267,67 @@ def _webNavigator():
 def _browserFocused():
 	if api.getFocusObject().appModule.appName in BROWSERS:
 		return True
-	ui.message("Copilot: odak Chrome veya Edge'de değil")
+	ui.message(_("Copilot: the focus is not in Chrome or Edge"))
 	return False
 
 
+SITE = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)*")
+
+
+def _siteHost(entry):
+	"""Same normalization as the coordinator's site_host: URL, *.host or host -> host, or None."""
+	entry = entry.strip().lower()
+	host = (urlsplit(entry if "://" in entry else "//" + entry).hostname or "").lstrip("*.")
+	return host if SITE.fullmatch(host) else None
+
+
 class CopilotSettingsPanel(settingsDialogs.SettingsPanel):
-	"""NVDA settings category for the Anthropic API key; the key is stored DPAPI-encrypted."""
+	"""API key (stored DPAPI-encrypted) and privacy settings."""
 
 	title = "NVDA AI Copilot"
 
 	def makeSettings(self, settingsSizer):
 		helper = guiHelper.BoxSizerHelper(self, sizer=settingsSizer)
-		label = "Anthropic API anahtarı"
+		# Translators: label of the API key field in NVDA settings.
+		label = _("Anthropic API key")
 		if secret.has_key():
-			label += " (kayıtlı bir anahtar var; değiştirmek için yenisini yapıştır)"
+			# Translators: added to the API key label when a key is already saved.
+			label += " " + _("(a key is saved; paste a new one to replace it)")
 		self.keyEdit = helper.addLabeledControl(label, wx.TextCtrl, style=wx.TE_PASSWORD)
-		self.deleteCheck = helper.addItem(wx.CheckBox(self, label="Kayıtlı anahtarı sil"))
+		# Translators: checkbox that deletes the saved API key.
+		self.deleteCheck = helper.addItem(wx.CheckBox(self, label=_("Delete the saved key")))
+		conf = config.conf[CONF_SECTION]
+		# Translators: checkbox in NVDA settings.
+		self.screenshotsCheck = helper.addItem(
+			wx.CheckBox(self, label=_("Send screenshots to the AI (sensitive fields are always blacked out)"))
+		)
+		self.screenshotsCheck.SetValue(conf["sendScreenshots"])
+		# Translators: label of the list of sites where Copilot never sends anything.
+		self.sitesEdit = helper.addLabeledControl(
+			_("Sites where Copilot is off, separated by spaces or commas (for example mybank.com)"), wx.TextCtrl
+		)
+		self.sitesEdit.SetValue(", ".join(conf["blockedSites"].split()))
+
+	def _siteEntries(self):
+		return [s for s in re.split(r"[\s,;]+", self.sitesEdit.GetValue()) if s]
 
 	def isValid(self):
 		key = self.keyEdit.GetValue().strip()
 		if key and not secret.valid_key(key):
-			gui.messageBox(
-				"API anahtarı geçersiz görünüyor: boşluk veya Türkçe karakter içermemeli.",
-				"NVDA AI Copilot",
-				wx.OK | wx.ICON_ERROR,
-				self,
-			)
+			# Translators: error when the pasted API key has spaces or non-ASCII characters.
+			gui.messageBox(_("The API key looks invalid: it must not contain spaces or special characters."), "NVDA AI Copilot", wx.OK | wx.ICON_ERROR, self)
+			return False
+		bad = [s for s in self._siteEntries() if not _siteHost(s)]
+		if bad:
+			# Translators: error listing site entries that are not host names.
+			gui.messageBox(_("These are not site names: {sites}").format(sites=", ".join(bad)), "NVDA AI Copilot", wx.OK | wx.ICON_ERROR, self)
 			return False
 		return super().isValid()
 
 	def onSave(self):
+		conf = config.conf[CONF_SECTION]
+		conf["sendScreenshots"] = self.screenshotsCheck.IsChecked()
+		conf["blockedSites"] = " ".join(dict.fromkeys(_siteHost(s) for s in self._siteEntries()))
 		key = self.keyEdit.GetValue().strip()
 		try:
 			if key:
@@ -236,10 +336,14 @@ class CopilotSettingsPanel(settingsDialogs.SettingsPanel):
 				secret.delete_key()
 		except OSError as e:
 			log.error(f"nvdaAiCopilot: API key could not be saved: {e}")
-			gui.messageBox("API anahtarı kaydedilemedi, NVDA loguna bak.", "NVDA AI Copilot", wx.OK | wx.ICON_ERROR)
+			# Translators: error when the API key could not be written.
+			gui.messageBox(_("The API key could not be saved; see the NVDA log."), "NVDA AI Copilot", wx.OK | wx.ICON_ERROR)
 
 
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
+	# Translators: category of this add-on's commands in the Input gestures dialog.
+	scriptCategory = _("NVDA AI Copilot")
+
 	def __init__(self):
 		super().__init__()
 		settingsDialogs.NVDASettingsDialog.categoryClasses.append(CopilotSettingsPanel)
@@ -248,60 +352,70 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		settingsDialogs.NVDASettingsDialog.categoryClasses.remove(CopilotSettingsPanel)
 		super().terminate()
 
-	# shortcut: NVDA+Alt+Shift gestures until the add-on is packaged and the final shortcuts are chosen.
-	@script(description="NVDA AI Copilot: explain the navigator object with AI", gesture="kb:NVDA+alt+shift+e")
+	# Translators: input gesture description.
+	@script(description=_("Explains the navigator object with AI"), gesture="kb:NVDA+alt+shift+e")
 	def script_explain(self, gesture):
 		obj = _webNavigator()
 		if obj:
 			self._locate(obj, {"type": "locate", "nav": _navContext(obj)}, _explainMatched)
 
-	@script(description="NVDA AI Copilot: explain the form around the navigator object with AI", gesture="kb:NVDA+alt+shift+r")
+	# Translators: input gesture description.
+	@script(description=_("Explains the form around the navigator object with AI"), gesture="kb:NVDA+alt+shift+r")
 	def script_form(self, gesture):
 		obj = _webNavigator()
 		if obj:
 			onMatched = lambda located: _askModel({"type": "form", "elementId": located["elementId"]})  # noqa: E731
 			self._locate(obj, {"type": "locate", "nav": _navContext(obj)}, onMatched)
 
-	@script(description="NVDA AI Copilot: explain the table around the navigator object with AI", gesture="kb:NVDA+alt+shift+t")
+	# Translators: input gesture description.
+	@script(description=_("Explains the table around the navigator object with AI"), gesture="kb:NVDA+alt+shift+t")
 	def script_table(self, gesture):
 		obj = _webNavigator()
 		if obj:
 			onMatched = lambda located: _askModel({"type": "table", "elementId": located["elementId"]})  # noqa: E731
 			self._locate(obj, {"type": "locate", "nav": _navContext(obj)}, onMatched)
 
-	@script(description="NVDA AI Copilot: summarize the current web page with AI", gesture="kb:NVDA+alt+shift+p")
+	# Translators: input gesture description.
+	@script(description=_("Summarizes the current web page with AI"), gesture="kb:NVDA+alt+shift+p")
 	def script_summarize(self, gesture):
 		if not _browserFocused():
 			return
 		threading.Thread(target=_askModel, args=({"type": "summarize"},), daemon=True).start()
 
-	@script(description="NVDA AI Copilot: find something on the web page with AI and move there", gesture="kb:NVDA+alt+shift+f")
+	# Translators: input gesture description.
+	@script(description=_("Finds something on the web page with AI and moves there"), gesture="kb:NVDA+alt+shift+f")
 	def script_find(self, gesture):
 		if not _browserFocused():
 			return
-		wx.CallAfter(_askText, "Sayfada ne arıyorsun?", _find)
+		# Translators: prompt of the find dialog.
+		wx.CallAfter(_askText, _("What are you looking for on the page?"), _find)
 
-	@script(description="NVDA AI Copilot: say what changed on the page since the last click or key press", gesture="kb:NVDA+alt+shift+c")
+	# Translators: input gesture description.
+	@script(description=_("Says what changed on the page since the last click or key press"), gesture="kb:NVDA+alt+shift+c")
 	def script_changes(self, gesture):
 		if not _browserFocused():
 			return
 		threading.Thread(target=_askModel, args=({"type": "changes"},), daemon=True).start()
 
-	@script(description="NVDA AI Copilot: list the page's parts found by AI and move to one", gesture="kb:NVDA+alt+shift+b")
+	# Translators: input gesture description.
+	@script(description=_("Lists the parts of the page found by AI and moves to one"), gesture="kb:NVDA+alt+shift+b")
 	def script_sections(self, gesture):
 		if not _browserFocused():
 			return
 		threading.Thread(target=_sections, daemon=True).start()
 
-	@script(description="NVDA AI Copilot: ask a follow-up question about the last AI answer", gesture="kb:NVDA+alt+shift+q")
+	# Translators: input gesture description.
+	@script(description=_("Asks a follow-up question about the last AI answer"), gesture="kb:NVDA+alt+shift+q")
 	def script_followup(self, gesture):
 		wx.CallAfter(
 			_askText,
-			"Son AI cevabı hakkında ne sormak istiyorsun?",
+			# Translators: prompt of the follow-up question dialog.
+			_("What do you want to ask about the last AI answer?"),
 			lambda question: _askModel({"type": "followup", "query": question}),
 		)
 
-	@script(description="NVDA AI Copilot: locate navigator object in the page (debug)", gesture="kb:NVDA+alt+shift+l")
+	# Translators: input gesture description.
+	@script(description=_("Locates the navigator object in the page (for troubleshooting)"), gesture="kb:NVDA+alt+shift+l")
 	def script_locate(self, gesture):
 		obj = _webNavigator()
 		if obj:

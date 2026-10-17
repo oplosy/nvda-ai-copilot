@@ -1,0 +1,152 @@
+# Turkish translation of NVDA AI Copilot.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: tr\n"
+
+msgid "(a key is saved; paste a new one to replace it)"
+msgstr "(kayıtlı bir anahtar var; değiştirmek için yenisini yapıştır)"
+
+msgid "A follow-up question is about the last AI answer; use an AI command first"
+msgstr "Takip sorusu son AI cevabına sorulur; önce bir AI komutu kullan"
+
+msgid "AI comment: {text}"
+msgstr "AI yorumu: {text}"
+
+msgid "Anthropic API key"
+msgstr "Anthropic API anahtarı"
+
+msgid "Asks a follow-up question about the last AI answer"
+msgstr "Son AI cevabı hakkında takip sorusu sorar"
+
+msgid "Cannot reach the AI service. Check the internet connection"
+msgstr "AI servisine ulaşılamıyor. İnternet bağlantısını kontrol et"
+
+msgid "Copilot error: {text}"
+msgstr "Copilot hatası: {text}"
+
+msgid "Copilot is turned off for this site in the NVDA settings"
+msgstr "Copilot bu sitede NVDA ayarlarından kapatılmış"
+
+msgid "Copilot: asking AI"
+msgstr "Copilot: AI'ya soruluyor"
+
+msgid "Copilot: cannot reach the coordinator. Are the browser and the extension running?"
+msgstr "Copilot: koordinatöre ulaşılamadı. Tarayıcı ve eklenti açık mı?"
+
+msgid "Copilot: finding the parts of the page"
+msgstr "Copilot: bölümler çıkarılıyor"
+
+msgid "Copilot: focus could not be moved"
+msgstr "Copilot: odak taşınamadı"
+
+msgid "Copilot: no exact match, {count} candidates"
+msgstr "Copilot: kesin eşlenemedi, {count} aday"
+
+msgid "Copilot: no matching element found"
+msgstr "Copilot: eşleşen öğe bulunamadı"
+
+msgid "Copilot: searching"
+msgstr "Copilot: aranıyor"
+
+msgid "Copilot: the answer timed out"
+msgstr "Copilot: yanıt zaman aşımına uğradı"
+
+msgid "Copilot: the focus is not in Chrome or Edge"
+msgstr "Copilot: odak Chrome veya Edge'de değil"
+
+msgid "Copilot: the navigator object is not a web element in Chrome or Edge"
+msgstr "Copilot: navigator nesnesi Chrome veya Edge'de bir web öğesi değil"
+
+msgid "Copilot: {id}, {tag}, matched by {method}"
+msgstr "Copilot: {id}, {tag}, {method} ile eşlendi"
+
+msgid "Copilot: {text}"
+msgstr "Copilot: {text}"
+
+msgid "Delete the saved key"
+msgstr "Kayıtlı anahtarı sil"
+
+msgid "Explains the form around the navigator object with AI"
+msgstr "Navigator nesnesinin bulunduğu formu AI ile açıklar"
+
+msgid "Explains the navigator object with AI"
+msgstr "Navigator nesnesini AI ile açıklar"
+
+msgid "Explains the table around the navigator object with AI"
+msgstr "Navigator nesnesinin bulunduğu tabloyu AI ile açıklar"
+
+msgid "Finds something on the web page with AI and moves there"
+msgstr "Web sayfasında AI ile bir şey bulur ve oraya gider"
+
+msgid "Focus could not be moved."
+msgstr "Odak taşınamadı."
+
+msgid "Lists the parts of the page found by AI and moves to one"
+msgstr "AI'nın bulduğu sayfa bölümlerini listeler ve birine gider"
+
+msgid "Locates the navigator object in the page (for troubleshooting)"
+msgstr "Navigator nesnesini sayfada eşler (sorun giderme için)"
+
+msgid "NVDA AI Copilot"
+msgstr "NVDA AI Copilot"
+
+msgid "No Anthropic API key is set. Enter it in NVDA settings, NVDA AI Copilot category"
+msgstr "Anthropic API anahtarı tanımlı değil. NVDA ayarlarında NVDA AI Copilot bölümüne gir"
+
+msgid "Nothing visible changed since the last click or key press"
+msgstr "Son tıklama veya tuş basımından beri sayfada görünür bir değişiklik yok"
+
+msgid "Says what changed on the page since the last click or key press"
+msgstr "Son tıklama veya tuş basımından beri sayfada neyin değiştiğini söyler"
+
+msgid "Send screenshots to the AI (sensitive fields are always blacked out)"
+msgstr "AI'ya ekran görüntüsü gönder (hassas alanlar her zaman karartılır)"
+
+msgid "Sites where Copilot is off, separated by spaces or commas (for example mybank.com)"
+msgstr "Copilot'un kapalı olduğu siteler, boşluk veya virgülle ayrılmış (örneğin bankam.com)"
+
+msgid "Summarizes the current web page with AI"
+msgstr "Geçerli web sayfasını AI ile özetler"
+
+msgid "The AI declined to answer"
+msgstr "AI yanıt vermeyi reddetti"
+
+msgid "The AI gave an answer Copilot cannot use"
+msgstr "AI, Copilot'un kullanamayacağı bir yanıt verdi"
+
+msgid "The AI gave an empty answer"
+msgstr "AI boş yanıt verdi"
+
+msgid "The AI service is busy. Try again shortly"
+msgstr "AI servisi meşgul. Biraz sonra tekrar dene"
+
+msgid "The API key could not be saved; see the NVDA log."
+msgstr "API anahtarı kaydedilemedi, NVDA loguna bak."
+
+msgid "The API key looks invalid: it must not contain spaces or special characters."
+msgstr "API anahtarı geçersiz görünüyor: boşluk veya özel karakter içermemeli."
+
+msgid "The Anthropic API key is invalid. Check it in NVDA settings, NVDA AI Copilot category"
+msgstr "Anthropic API anahtarı geçersiz. NVDA ayarlarında NVDA AI Copilot bölümünden kontrol et"
+
+msgid "The page could not be split into parts"
+msgstr "Sayfa bölümlere ayrılamadı"
+
+msgid "The saved API key could not be read. Enter it again in NVDA settings"
+msgstr "Kayıtlı API anahtarı okunamadı. NVDA ayarlarından yeniden gir"
+
+msgid "There is no table in or around this element"
+msgstr "Bu öğenin içinde veya çevresinde tablo yok"
+
+msgid "These are not site names: {sites}"
+msgstr "Bunlar site adı değil: {sites}"
+
+msgid "What are you looking for on the page?"
+msgstr "Sayfada ne arıyorsun?"
+
+msgid "What do you want to ask about the last AI answer?"
+msgstr "Son AI cevabı hakkında ne sormak istiyorsun?"
+
+msgid "the parts of the page. Focus moves to the part you choose."
+msgstr "sayfanın bölümleri. Seçtiğin bölüme odak taşınır."

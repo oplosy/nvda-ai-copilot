@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NVDA AI Copilot</title>
+</head>
+<body>
+<h1>NVDA AI Copilot</h1>
+<p>AI help for the parts of a web page that a screen reader cannot make sense of. It works in Google Chrome and Microsoft Edge. AI output only comes when you press a shortcut, and it always starts with "AI comment:" so you can tell it apart from what the page says.</p>
+
+<h2>Before you start</h2>
+<p>The add-on needs two more parts: the coordinator (run install.bat from the coordinator zip) and the NVDA AI Copilot browser extension. Then enter your Anthropic API key in NVDA menu, Preferences, Settings, NVDA AI Copilot.</p>
+
+<h2>Commands</h2>
+<p>Use them in browse mode. You can change them in NVDA's Input gestures dialog, category NVDA AI Copilot.</p>
+<ul>
+<li>NVDA+Alt+Shift+E: explain the element under the navigator object.</li>
+<li>NVDA+Alt+Shift+P: summarize the page.</li>
+<li>NVDA+Alt+Shift+F: find something; focus moves to the best match.</li>
+<li>NVDA+Alt+Shift+R: form help: what still needs filling in and how to fix errors.</li>
+<li>NVDA+Alt+Shift+T: table help: what the table shows and what the current cell means.</li>
+<li>NVDA+Alt+Shift+C: what changed on the page since your last click or key press.</li>
+<li>NVDA+Alt+Shift+B: the parts of the page found by AI; choose one and focus moves there.</li>
+<li>NVDA+Alt+Shift+Q: ask a follow-up question about the last answer (for five minutes).</li>
+</ul>
+<p>The AI can only move focus. It never clicks, types or submits anything.</p>
+
+<h2>Settings and privacy</h2>
+<ul>
+<li>Anthropic API key: stored encrypted for your Windows account.</li>
+<li>Send screenshots to the AI: when off, no screenshot is taken at all.</li>
+<li>Sites where Copilot is off: nothing from these sites (and their subdomains) is sent.</li>
+</ul>
+<p>Field values are never read. Password, one-time code and card fields and embedded frames such as payment forms are blacked out in screenshots. Logs never contain AI answers or your questions. Answers are in NVDA's language.</p>
+</body>
+</html>

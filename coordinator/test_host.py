@@ -63,7 +63,7 @@ class CoordinatorTest(unittest.TestCase):
 			raise ExtensionError("no content script")
 
 		r = Coordinator(failing).handle({"type": "locate", "nav": nav([0, 0, 1, 1], "a")})
-		self.assertEqual(r, {"status": "error", "message": "no content script"})
+		self.assertEqual(r, {"status": "error", "code": "extension", "message": "no content script"})
 
 	def test_bad_request(self):
 		self.assertEqual(self.c.handle({"type": "nope"})["status"], "error")

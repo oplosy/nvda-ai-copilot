@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import queue
+import re
 import secrets
 import socketserver
 import sys
@@ -17,6 +18,7 @@ import threading
 import time
 from collections import OrderedDict
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import llm
 import native
@@ -36,12 +38,49 @@ FOLLOWUP_TTL_S = 300
 CACHED_TASKS = {"explain"}
 CACHE_SIZE = 200
 CACHE_TTL_S = 30 * 60
+MAX_BLOCKED_SITES = 200
+SITE = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)*")
+LANGUAGE_CODE = re.compile(r"[A-Za-z]{2,3}([_-][A-Za-z0-9]{2,8})?")
 
 log = logging.getLogger("coordinator")
 
 
 class ExtensionError(Exception):
 	pass
+
+
+class Blocked(Exception):
+	"""The page's site is on the person's blocked list: nothing from it may reach the model."""
+
+
+def site_host(entry):
+	"""'https://www.Bank.com/x', '*.bank.com' or 'bank.com' -> the host name, or None if it is not one."""
+	entry = entry.strip().lower()
+	host = (urlsplit(entry if "://" in entry else "//" + entry).hostname or "").lstrip("*.")
+	return host if SITE.fullmatch(host) else None
+
+
+def parse_settings(raw):
+	"""The add-on's privacy and language settings; anything malformed falls back to the safe default."""
+	raw = raw if isinstance(raw, dict) else {}
+	sites = raw.get("blockedSites") if isinstance(raw.get("blockedSites"), list) else []
+	hosts = [site_host(s) for s in sites[:MAX_BLOCKED_SITES] if isinstance(s, str)]
+	language = raw.get("language")
+	return {
+		"screenshots": raw.get("screenshots") is not False,
+		"blockedSites": [h for h in hosts if h],
+		"language": language if isinstance(language, str) and LANGUAGE_CODE.fullmatch(language) else llm.DEFAULT_LANGUAGE,
+	}
+
+
+def is_blocked(origin, sites):
+	host = (urlsplit(origin).hostname or "").lower()
+	return any(host == s or host.endswith("." + s) for s in sites)
+
+
+def info(code, text):
+	"""A spoken notice that is not AI output; the add-on speaks its own translation of code."""
+	return {"status": "info", "code": code, "text": text}
 
 
 class Extension:
@@ -81,20 +120,47 @@ class Extension:
 class Coordinator:
 	def __init__(self, ask_extension, explain=None, choose=None, sections=None, followup=None):
 		self.ask = ask_extension
+		# The defaults answer in the person's language and stream sentences through self._emit.
 		# explain(data, screenshot, task) -> spoken text
-		self.explain_fn = explain or (lambda ctx, shot, task: llm.explain(llm.default_client(), ctx, shot, task))
+		self.explain_fn = explain or (
+			lambda ctx, shot, task: llm.explain(llm.default_client(), ctx, shot, task, self.settings["language"], self._emit)
+		)
 		# choose(data, screenshot, user_request, choices) -> (element ID in choices or None, spoken reason)
-		self.choose_fn = choose or (lambda ctx, shot, q, ids: llm.choose(llm.default_client(), ctx, shot, q, ids))
+		self.choose_fn = choose or (
+			lambda ctx, shot, q, ids: llm.choose(llm.default_client(), ctx, shot, q, ids, self.settings["language"])
+		)
 		# sections(data, screenshot, choices) -> [(element ID in choices, title)]
-		self.sections_fn = sections or (lambda ctx, shot, ids: llm.sections(llm.default_client(), ctx, shot, ids))
+		self.sections_fn = sections or (
+			lambda ctx, shot, ids: llm.sections(llm.default_client(), ctx, shot, ids, self.settings["language"])
+		)
 		# followup(data, screenshot, task, turns, question) -> spoken text
-		self.followup_fn = followup or (lambda *a: llm.followup(llm.default_client(), *a))
+		self.followup_fn = followup or (
+			lambda *a: llm.followup(llm.default_client(), *a, self.settings["language"], self._emit)
+		)
+		self.settings = parse_settings(None)  # replaced by each request's settings
+		self._emit = None  # sentence callback of the current request, if the client streams
+		self.streamed = False
 		self.pending = None  # (nonce, snapshot) of the marking round the add-on is polling
 		self.last = None  # model input and turns of the last AI answer, for follow-up questions
 		self.section_ids = set()  # IDs of the last section list: the only elements "focus" may move to
 		self.cache = OrderedDict()  # hash of task and redacted model data -> (answer, time)
 
-	def handle(self, req):
+	def handle(self, req, emit=None):
+		"""emit(text), if given, receives finished sentences of the answer while it is written."""
+		self.settings = parse_settings(req.get("settings"))
+		self.streamed = False
+
+		def on_sentence(text):
+			self.streamed = True
+			emit(text)
+
+		self._emit = on_sentence if emit else None
+		reply = self._handle(req)
+		if self.streamed and reply.get("status") == "explained":
+			reply["streamed"] = True  # the add-on already spoke it
+		return reply
+
+	def _handle(self, req):
 		kind = req.get("type")
 		try:
 			if kind == "locate" and isinstance(req.get("nav"), dict):
@@ -104,17 +170,17 @@ class Coordinator:
 			if kind == "summarize":
 				return self.summarize()
 			if kind == "form" and isinstance(req.get("elementId"), str):
-				ctx = self.ask({"type": "form", "elementId": req["elementId"]})
+				ctx = self._page({"type": "form", "elementId": req["elementId"]})
 				return {"status": "explained", "text": self._ask_model(ctx, "form", "form")}
 			if kind == "table" and isinstance(req.get("elementId"), str):
-				ctx = self.ask({"type": "table", "elementId": req["elementId"]})
+				ctx = self._page({"type": "table", "elementId": req["elementId"]})
 				if not ctx.get("table"):
-					return {"status": "info", "text": "bu öğenin içinde veya çevresinde tablo yok"}
+					return info("no_table", "there is no table in or around this element")
 				return {"status": "explained", "text": self._ask_model(ctx, "table", "table")}
 			if kind == "changes":
-				ctx = self.ask({"type": "changes"})
+				ctx = self._page({"type": "changes"})
 				if not ctx["changes"]["items"]:
-					return {"status": "info", "text": "son tıklama veya tuş basımından beri sayfada görünür bir değişiklik yok"}
+					return info("no_changes", "nothing visible changed since the last click or key press")
 				return {"status": "explained", "text": self._ask_model(ctx, "changes", "changes")}
 			if kind == "sections":
 				return self.sections()
@@ -127,24 +193,28 @@ class Coordinator:
 					return self.find(query.strip())
 				if kind == "followup":
 					return self.followup(query.strip())
-			return {"status": "error", "message": "bad request"}
-		except (ExtensionError, llm.LLMError) as e:
-			return {"status": "error", "message": str(e)}
+			return {"status": "error", "code": "bad_request", "message": "bad request"}
+		except Blocked:
+			return info("blocked", "Copilot is turned off for this site in the NVDA settings")
+		except ExtensionError as e:
+			return {"status": "error", "code": "extension", "message": str(e)}
+		except llm.LLMError as e:
+			return {"status": "error", "code": e.code, "message": str(e)}
 		except (KeyError, TypeError, ValueError) as e:
 			log.exception("%s failed", kind)
-			return {"status": "error", "message": f"bad data: {e}"}
+			return {"status": "error", "code": "bad_data", "message": f"bad data: {e}"}
 
 	def explain(self, element_id):
-		ctx = self.ask({"type": "context", "elementId": element_id})
+		ctx = self._page({"type": "context", "elementId": element_id})
 		text = self._ask_model(ctx, "element", "explain")
 		return {"status": "explained", "elementId": element_id, "text": text}
 
 	def summarize(self):
-		ctx = self.ask({"type": "outline"})
+		ctx = self._page({"type": "outline"})
 		return {"status": "explained", "text": self._ask_model(ctx, "outline", "summarize")}
 
 	def find(self, query):
-		ctx = self.ask({"type": "outline"})
+		ctx = self._page({"type": "outline"})
 		outline = ctx["outline"]
 		# The model may only pick an element the extension listed; "focus" is the only action allowed.
 		choices = sorted({item["id"] for part in ("headings", "landmarks", "controls") for item in outline[part]})
@@ -161,30 +231,43 @@ class Coordinator:
 		return {"status": "found", "elementId": element_id, "focused": bool(focused), "text": reason}
 
 	def sections(self):
-		ctx = self.ask({"type": "sections"})
+		ctx = self._page({"type": "sections"})
 		sections = ctx["sections"]
 		# As with find: only IDs the extension issued, and "focus" is the only action on them.
 		choices = sorted({item["id"] for part in ("headings", "landmarks", "blocks") for item in sections[part]})
 		if not choices:
-			return {"status": "info", "text": "sayfada bölümlere ayrılacak içerik bulunamadı"}
+			return info("no_sections", "the page has no content to split into parts")
 		data = redact({"page": ctx["page"], "sections": sections})
 		shot = ctx.get("screenshot")
 		picked = self.sections_fn(data, shot, choices)
 		log.info("sections: %s choices -> %s", len(choices), len(picked))
 		if not picked:
-			return {"status": "info", "text": "sayfa bölümlere ayrılamadı"}
+			return info("no_sections", "the page could not be split into parts")
 		self.section_ids = {element_id for element_id, _ in picked}
-		self._remember("summarize", data, shot, None, "Sayfanın bölümleri: " + "; ".join(t for _, t in picked))
+		self._remember("summarize", data, shot, None, "Parts of the page: " + "; ".join(t for _, t in picked))
 		return {"status": "sections", "sections": [{"elementId": i, "title": t} for i, t in picked]}
 
 	def followup(self, question):
 		last = self.last
 		if not last or time.monotonic() - last["at"] > FOLLOWUP_TTL_S:
-			return {"status": "info", "text": "takip sorusu son AI cevabına sorulur; önce bir AI komutu kullan"}
-		text = self.followup_fn(last["data"], last["shot"], last["task"], list(last["turns"]), question)
+			return info("no_followup", "a follow-up asks about the last AI answer; use an AI command first")
+		if is_blocked(last["data"]["page"]["origin"], self.settings["blockedSites"]):
+			raise Blocked()
+		shot = last["shot"] if self.settings["screenshots"] else None
+		text = self.followup_fn(last["data"], shot, last["task"], list(last["turns"]), question)
 		log.info("followup %s -> %s chars", len(last["turns"]), len(text))
 		last["turns"].append((question, text))
 		return {"status": "explained", "text": text}
+
+	def _page(self, msg):
+		"""Page data from the extension, with the person's privacy settings applied before any of it
+		can reach the model."""
+		ctx = self.ask(msg if self.settings["screenshots"] else {**msg, "screenshot": False})
+		if is_blocked(ctx["page"]["origin"], self.settings["blockedSites"]):
+			raise Blocked()
+		if not self.settings["screenshots"]:
+			ctx["screenshot"] = None
+		return ctx
 
 	def _remember(self, task, data, shot, request, answer):
 		self.last = {"task": task, "data": data, "shot": shot, "turns": [(request, answer)], "at": time.monotonic()}
@@ -196,7 +279,8 @@ class Coordinator:
 		data = redact({"page": ctx["page"], key: ctx[key]})
 		shot = ctx.get("screenshot")
 		log.info("%s: screenshot=%s chars, data=%s chars", task, len(shot or ""), len(json.dumps(data)))
-		key = hashlib.sha256(json.dumps([task, data], sort_keys=True).encode()).hexdigest() if task in CACHED_TASKS else None
+		cache_input = [task, data, self.settings["language"]]
+		key = hashlib.sha256(json.dumps(cache_input, sort_keys=True).encode()).hexdigest() if task in CACHED_TASKS else None
 		hit = self.cache.get(key)
 		if hit and time.monotonic() - hit[1] < CACHE_TTL_S:
 			self.cache.move_to_end(key)
@@ -256,7 +340,14 @@ class Handler(socketserver.StreamRequestHandler):
 		):
 			log.warning("rejected client without valid token")
 			return
-		reply = self.server.coordinator.handle(req)
+
+		def emit(text):
+			try:
+				self.wfile.write((json.dumps({"status": "partial", "text": text}) + "\n").encode("utf-8"))
+			except OSError:
+				pass  # the add-on stopped waiting; the full answer is still cached and remembered
+
+		reply = self.server.coordinator.handle(req, emit)
 		self.wfile.write((json.dumps(reply) + "\n").encode("utf-8"))
 
 

@@ -135,7 +135,10 @@ def _askModel(msg):
 	if reply is None:
 		return
 	if reply.get("status") == "explained":
-		if not reply.get("streamed"):
+		if reply.get("saved"):
+			# Translators: prefix of an AI comment the user saved earlier for this element.
+			_onMain(ui.message, _("Saved AI comment: {text}").format(text=reply["text"]))
+		elif not reply.get("streamed"):
 			_onMain(ui.message, _aiComment(reply["text"]))
 	else:
 		_onMain(ui.message, _describe(reply))
@@ -148,6 +151,10 @@ def _messages():
 		"blocked": _("Copilot is turned off for this site in the NVDA settings"),
 		"no_table": _("There is no table in or around this element"),
 		"no_chart": _("There is no chart drawn as SVG in or around this element"),
+		"no_label": _("Saving works on the last element explanation; explain an element first"),
+		"label_unidentifiable": _("Nothing identifies this element on a later visit, so it cannot be saved"),
+		"label_saved": _("Saved: this AI comment is spoken at once on later visits"),
+		"label_deleted": _("The saved AI comment for this element is deleted"),
 		"no_changes": _("Nothing visible changed since the last click or key press"),
 		"no_sections": _("The page could not be split into parts"),
 		"no_followup": _("A follow-up question is about the last AI answer; use an AI command first"),
@@ -192,6 +199,12 @@ def _report(located):
 		# Translators: spoken when the AI-written report is on the clipboard.
 		_onMain(ui.message, _("Copilot: an AI-written accessibility report is on the clipboard. Paste it into an email or the site's feedback form."))
 	else:
+		_onMain(ui.message, _describe(reply))
+
+
+def _toggleLabel():
+	reply = _call({"type": "label"})
+	if reply is not None:
 		_onMain(ui.message, _describe(reply))
 
 
@@ -405,6 +418,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		obj = _webNavigator()
 		if obj:
 			self._locate(obj, {"type": "locate", "nav": _navContext(obj)}, _report)
+
+	# Translators: input gesture description.
+	@script(description=_("Saves the last element explanation for this site, or deletes a saved one"), gesture="kb:NVDA+alt+shift+k")
+	def script_label(self, gesture):
+		threading.Thread(target=_toggleLabel, daemon=True).start()
 
 	# Translators: input gesture description.
 	@script(description=_("Summarizes the current web page with AI"), gesture="kb:NVDA+alt+shift+p")

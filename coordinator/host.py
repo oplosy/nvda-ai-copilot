@@ -21,6 +21,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import llm
+import labels
 import native
 from grounding import resolve
 from privacy import mask_cards, redact
@@ -28,6 +29,7 @@ from privacy import mask_cards, redact
 DATA_DIR = Path(os.environ["LOCALAPPDATA"]) / "nvda-ai-copilot"
 # shortcut: one session file per user, so the last started Chrome profile wins; key by profile if needed.
 SESSION_FILE = DATA_DIR / "session.json"
+LABELS_FILE = DATA_DIR / "labels.json"
 EXTENSION_TIMEOUT_S = 3
 CLIENT_TIMEOUT_S = 5
 MAX_REQUEST_BYTES = 64 * 1024
@@ -122,7 +124,7 @@ class Extension:
 
 
 class Coordinator:
-	def __init__(self, ask_extension, explain=None, choose=None, sections=None, followup=None):
+	def __init__(self, ask_extension, explain=None, choose=None, sections=None, followup=None, saved_labels=None):
 		self.ask = ask_extension
 		# The defaults answer in the person's language and stream sentences through self._emit.
 		# explain(data, screenshot, task) -> spoken text
@@ -148,6 +150,7 @@ class Coordinator:
 		self.last = None  # model input and turns of the last AI answer, for follow-up questions
 		self.section_ids = set()  # IDs of the last section list: the only elements "focus" may move to
 		self.cache = OrderedDict()  # hash of task and redacted model data -> (answer, time)
+		self.labels = saved_labels or labels.SavedLabels()  # main() passes the file-backed store
 
 	def handle(self, req, emit=None):
 		"""emit(text), if given, receives finished sentences of the answer while it is written."""
@@ -178,6 +181,8 @@ class Coordinator:
 				return self.explain(req["elementId"])
 			if kind == "report" and isinstance(req.get("elementId"), str):
 				return self.report(req["elementId"])
+			if kind == "label":
+				return self.toggle_label()
 			if kind == "summarize":
 				return self.summarize()
 			if kind == "form" and isinstance(req.get("elementId"), str):
@@ -222,8 +227,34 @@ class Coordinator:
 
 	def explain(self, element_id):
 		ctx = self._page({"type": "context", "elementId": element_id})
-		text = self._ask_model(ctx, "element", "explain")
-		return {"status": "explained", "elementId": element_id, "text": text}
+		origin = ctx["page"]["origin"]
+		sig = labels.signature(redact(ctx["element"]))
+		saved = sig and self.labels.get(origin, sig)
+		if saved:
+			self._remember("explain", redact({"page": ctx["page"], "element": ctx["element"]}), ctx.get("screenshot"), None, saved)
+		else:
+			saved = None
+			text = self._ask_model(ctx, "element", "explain")
+		self.last.update(origin=origin, signature=sig, saved=bool(saved))
+		reply = {"status": "explained", "elementId": element_id, "text": saved or text}
+		if saved:
+			reply["saved"] = True  # spoken as a saved AI comment
+		return reply
+
+	def toggle_label(self):
+		"""Saves the last element explanation for this site, or deletes it if it was a saved one."""
+		last = self.last
+		if not last or last["task"] != "explain" or time.monotonic() - last["at"] > FOLLOWUP_TTL_S:
+			return info("no_label", "saving works on the last element explanation; explain an element first")
+		if not last.get("signature"):
+			return info("label_unidentifiable", "nothing identifies this element on a later visit, so it cannot be saved")
+		if last["saved"]:
+			self.labels.delete(last["origin"], last["signature"])
+			last["saved"] = False
+			return info("label_deleted", "the saved AI comment for this element is deleted")
+		self.labels.put(last["origin"], last["signature"], last["turns"][0][1])
+		last["saved"] = True
+		return info("label_saved", "saved: this AI comment is spoken at once on later visits")
 
 	def report(self, element_id):
 		ctx = self._page({"type": "context", "elementId": element_id})
@@ -391,7 +422,7 @@ def main():
 	ext = Extension(sys.stdout.buffer)
 	server = socketserver.TCPServer(("127.0.0.1", 0), Handler)
 	server.token = secrets.token_hex(32)
-	server.coordinator = Coordinator(ext.ask)
+	server.coordinator = Coordinator(ext.ask, saved_labels=labels.SavedLabels(LABELS_FILE))
 	SESSION_FILE.write_text(json.dumps({"port": server.server_address[1], "token": server.token, "pid": os.getpid()}))
 	threading.Thread(target=server.serve_forever, daemon=True).start()
 	log.info("started, port %s", server.server_address[1])

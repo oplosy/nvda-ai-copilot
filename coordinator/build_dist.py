@@ -23,7 +23,7 @@ PY_VERSION = "3.12.10"
 PY_URL = f"https://www.python.org/ftp/python/{PY_VERSION}/python-{PY_VERSION}-embed-amd64.zip"
 # Hash of the file whose MD5 matched python.org's release page (fe8ef205f2e9c3ba44d0cf9954e1abd3).
 PY_SHA256 = "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3"
-APP_FILES = ["host.py", "llm.py", "privacy.py", "grounding.py", "native.py", "secret.py", "install_host.py", "run_host.bat"]
+APP_FILES = ["host.py", "llm.py", "labels.py", "privacy.py", "grounding.py", "native.py", "secret.py", "install_host.py", "run_host.bat"]
 TOP_FILES = ["install.bat", "uninstall.bat"]
 
 

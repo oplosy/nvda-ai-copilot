@@ -63,6 +63,7 @@ function describeElement(el) {
   const sensitive = isSensitiveField(el);
   return {
     tag: el.tagName.toLowerCase(),
+    htmlId: el.id || null,
     role: attr('role'),
     type: attr('type'),
     ariaLabel: attr('aria-label'),

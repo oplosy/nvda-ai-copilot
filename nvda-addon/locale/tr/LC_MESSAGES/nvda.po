@@ -85,6 +85,24 @@ msgstr "Copilot: AI ile yazılmış erişilebilirlik raporu panoda. Bir e-postay
 msgid "Writes an accessibility issue report about the navigator object for the site, to the clipboard"
 msgstr "Navigator nesnesi için siteye gönderilecek erişilebilirlik raporu yazar ve panoya kopyalar"
 
+msgid "Saved AI comment: {text}"
+msgstr "Kayıtlı AI yorumu: {text}"
+
+msgid "Saving works on the last element explanation; explain an element first"
+msgstr "Kaydetme son öğe açıklamasına uygulanır; önce bir öğeyi açıklat"
+
+msgid "Nothing identifies this element on a later visit, so it cannot be saved"
+msgstr "Bu öğeyi sonraki ziyarette tanıtacak bir şey yok, bu yüzden kaydedilemiyor"
+
+msgid "Saved: this AI comment is spoken at once on later visits"
+msgstr "Kaydedildi: bu AI yorumu sonraki ziyaretlerde hemen okunacak"
+
+msgid "The saved AI comment for this element is deleted"
+msgstr "Bu öğe için kayıtlı AI yorumu silindi"
+
+msgid "Saves the last element explanation for this site, or deletes a saved one"
+msgstr "Son öğe açıklamasını bu site için kaydeder ya da kayıtlı olanı siler"
+
 msgid "Explains the navigator object with AI"
 msgstr "Navigator nesnesini AI ile açıklar"
 

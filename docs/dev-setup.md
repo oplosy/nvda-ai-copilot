@@ -133,7 +133,12 @@ per case; `--model` compares another model.
 ```powershell
 coordinator\.venv\Scripts\python eval\run.py --dry-run
 coordinator\.venv\Scripts\python eval\run.py
+coordinator\.venv\Scripts\python eval\run.py --local-model qwen2.5vl:7b
 ```
+
+`--local-model` runs the same cases on a local OpenAI-compatible server (default address
+`http://127.0.0.1:11434/v1`, Ollama; `--local-url` for another one on this computer), so a local
+model can be compared with Claude before recommending it.
 
 Add-on translations: English source strings in `_()`, `nvda-addon/locale/<lang>/LC_MESSAGES/nvda.po`.
 `build.py` compiles them and stops if a string has no translation.

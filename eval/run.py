@@ -5,9 +5,11 @@ through the real coordinator and prompts. Each answer is checked against keyword
 it picked, and timed, so a prompt or model change can be compared with the last run.
 
 Needs `npm install` at the repo root and, unless --dry-run, an Anthropic API key (NVDA settings
-or ANTHROPIC_API_KEY). Every run calls the API once per case.
+or ANTHROPIC_API_KEY), or with --local-model a running local server instead. Every run calls the
+model once per case.
 
     coordinator\\.venv\\Scripts\\python eval\\run.py [--model MODEL] [--only CASE_ID] [--dry-run]
+    coordinator\\.venv\\Scripts\\python eval\\run.py --local-model qwen2.5vl:7b [--local-url URL]
 """
 
 import argparse
@@ -24,6 +26,7 @@ sys.path.insert(0, str(ROOT / "coordinator"))
 import llm  # noqa: E402
 from host import Coordinator  # noqa: E402
 
+LOCAL_URL = "http://127.0.0.1:11434/v1"
 REQUESTS = {
 	"explain": lambda c: {"type": "explain", "elementId": c["targetId"]},
 	"form": lambda c: {"type": "form", "elementId": c["targetId"]},
@@ -70,9 +73,19 @@ def main():
 	parser.add_argument("--model", help=f"model to test instead of {llm.MODEL}")
 	parser.add_argument("--only", help="run one case")
 	parser.add_argument("--dry-run", action="store_true", help="check the cases without calling the API")
+	parser.add_argument("--local-model", help="test a model on a local OpenAI-compatible server (for example qwen2.5vl:7b) instead of Claude")
+	parser.add_argument("--local-url", default=LOCAL_URL, help=f"address of that server (default {LOCAL_URL}, Ollama)")
 	args = parser.parse_args()
+	# Redirected to a file, stdout uses the Windows code page; a character outside it must not end the run.
+	sys.stdout.reconfigure(errors="replace")
 	if args.model:
 		llm.MODEL = args.model
+	settings = {"language": "tr"}
+	if args.local_model:
+		settings.update(provider="local", localUrl=args.local_url, localModel=args.local_model)
+		if not llm.local_url_ok(args.local_url):
+			sys.exit("--local-url must be on this computer (localhost or 127.0.0.1)")
+	model = f"{args.local_model} at {args.local_url}" if args.local_model else llm.MODEL
 	cases = json.loads(subprocess.run(["node", str(ROOT / "eval" / "extract.js")], check=True, capture_output=True, text=True, encoding="utf-8").stdout)
 	cases = [c for c in cases if not args.only or c["id"] == args.only]
 	if not cases:
@@ -83,14 +96,14 @@ def main():
 		ask = lambda msg, replies=replies: json.loads(json.dumps(replies[msg["type"]]))  # noqa: E731
 		coordinator = dry_run_coordinator(ask) if args.dry_run else Coordinator(ask)
 		start = time.monotonic()
-		reply = coordinator.handle({**REQUESTS[case["task"]](case), "settings": {"language": "tr"}})
+		reply = coordinator.handle({**REQUESTS[case["task"]](case), "settings": settings})
 		seconds = time.monotonic() - start
 		passed, detail = (True, "dry run") if args.dry_run else check(case, reply)
 		results.append((passed, seconds))
 		print(f"{'PASS' if passed else 'FAIL'}  {seconds:5.1f}s  {case['id']}: {detail}")
 	passed = sum(p for p, _ in results)
 	times = [s for _, s in results]
-	print(f"\n{passed}/{len(results)} passed, model {llm.MODEL}, median {statistics.median(times):.1f}s, max {max(times):.1f}s")
+	print(f"\n{passed}/{len(results)} passed, model {model}, median {statistics.median(times):.1f}s, max {max(times):.1f}s")
 	sys.exit(0 if passed == len(results) else 1)
 
 

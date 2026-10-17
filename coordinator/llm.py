@@ -3,6 +3,10 @@
 import json
 import logging
 import re
+import urllib.error
+import urllib.request
+from types import SimpleNamespace
+from urllib.parse import urlsplit
 
 import anthropic
 
@@ -271,6 +275,125 @@ def default_client():
 			raise LLMError(f"Anthropic client could not be created: {e}", "client_error") from None
 		_client_key = key
 	return _client
+
+
+# A local model is slower; the NVDA add-on waits 45 s for an answer.
+LOCAL_TIMEOUT_S = 40
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+LOCAL_STOP_REASONS = {"stop": "end_turn", "length": "max_tokens", "content_filter": "refusal"}
+
+
+def local_url_ok(url):
+	"""Only a server on this computer: the local option promises that nothing leaves it."""
+	try:
+		parts = urlsplit(url)
+		return parts.scheme in ("http", "https") and parts.hostname in LOCAL_HOSTS
+	except ValueError:
+		return False
+
+
+def client_for(settings):
+	"""The client the person chose in the NVDA settings. A local choice never falls back to the cloud."""
+	if settings.get("provider") != "local":
+		return default_client()
+	if not local_url_ok(settings.get("localUrl") or "") or not settings.get("localModel"):
+		raise LLMError("the local model server address or model name is not set correctly", "local_invalid")
+	return LocalClient(settings["localUrl"], settings["localModel"])
+
+
+def _local_response(text, finish_reason):
+	return SimpleNamespace(
+		stop_reason=LOCAL_STOP_REASONS.get(finish_reason, "end_turn"), content=[SimpleNamespace(type="text", text=text)]
+	)
+
+
+class LocalClient:
+	"""An OpenAI-compatible server on this computer (Ollama, LM Studio, llama.cpp) behind the part of
+	the Anthropic SDK interface this module uses, so every command works with it unchanged."""
+
+	def __init__(self, base_url, model):
+		self.base_url = base_url.rstrip("/")
+		self.model = model
+		self.beta = SimpleNamespace(messages=SimpleNamespace(create=self.create, stream=self.stream))
+
+	def body(self, request, stream):
+		messages = [{"role": "system", "content": request["system"]}]
+		for m in request["messages"]:
+			content = m["content"]
+			if not isinstance(content, str):
+				content = [
+					{"type": "text", "text": b["text"]}
+					if b["type"] == "text"
+					else {"type": "image_url", "image_url": {"url": f"data:{b['source']['media_type']};base64,{b['source']['data']}"}}
+					for b in content
+				]
+			messages.append({"role": m["role"], "content": content})
+		body = {"model": self.model, "messages": messages, "max_tokens": request["max_tokens"], "stream": stream}
+		fmt = request["output_config"].get("format")
+		if fmt:
+			body["response_format"] = {"type": "json_schema", "json_schema": {"name": "answer", "schema": fmt["schema"], "strict": True}}
+		return body
+
+	def open(self, body):
+		req = urllib.request.Request(f"{self.base_url}/chat/completions", json.dumps(body).encode("utf-8"), {"Content-Type": "application/json"})
+		try:
+			return urllib.request.urlopen(req, timeout=LOCAL_TIMEOUT_S)
+		except urllib.error.HTTPError as e:
+			raise LLMError(f"the local model server answered {e.code}; is the model name right and can it read images?", "local_error") from None
+		except OSError:
+			raise LLMError(f"cannot reach the local model server at {self.base_url}", "local_unreachable") from None
+
+	def create(self, **request):
+		with self.open(self.body(request, False)) as r:
+			try:
+				choice = json.load(r)["choices"][0]
+				return _local_response(choice["message"].get("content") or "", choice.get("finish_reason"))
+			except OSError:
+				raise LLMError("the local model server stopped answering", "local_unreachable") from None
+			except (ValueError, KeyError, IndexError, TypeError, AttributeError):
+				raise LLMError("the local model server sent an answer Copilot cannot read", "local_error") from None
+
+	def stream(self, **request):
+		return _LocalStream(self, request)
+
+
+class _LocalStream:
+	"""Server-sent events of an OpenAI-compatible streamed answer, shaped like the SDK's stream."""
+
+	def __init__(self, client, request):
+		self.client, self.request, self.text, self.finish = client, request, "", None
+
+	def __enter__(self):
+		self.response = self.client.open(self.client.body(self.request, True))
+		return self
+
+	def __exit__(self, *exc):
+		self.response.close()
+		return False
+
+	@property
+	def text_stream(self):
+		try:
+			for raw in self.response:
+				line = raw.decode("utf-8").strip()
+				if not line.startswith("data:"):
+					continue
+				payload = line[5:].strip()
+				if payload == "[DONE]":
+					return
+				choice = json.loads(payload)["choices"][0]
+				self.finish = choice.get("finish_reason") or self.finish
+				delta = (choice.get("delta") or {}).get("content") or ""
+				if delta:
+					self.text += delta
+					yield delta
+		except OSError:
+			raise LLMError("the local model server stopped answering", "local_unreachable") from None
+		except (ValueError, KeyError, IndexError, TypeError, AttributeError):
+			raise LLMError("the local model server sent an answer Copilot cannot read", "local_error") from None
+
+	def get_final_message(self):
+		return _local_response(self.text, self.finish)
 
 
 def explain(client, context, screenshot_b64, task="explain", language=DEFAULT_LANGUAGE, on_sentence=None):

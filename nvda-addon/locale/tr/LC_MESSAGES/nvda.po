@@ -127,6 +127,33 @@ msgstr "Bu sayfada ne yapmak istiyorsun?"
 msgid "Asks for the next step of the guided task"
 msgstr "Rehberli görevin sonraki adımını ister"
 
+msgid "The local model server address or model name is not set correctly in NVDA settings"
+msgstr "Yerel model sunucusunun adresi veya model adı NVDA ayarlarında doğru girilmemiş"
+
+msgid "Cannot reach the local model server. Is it running?"
+msgstr "Yerel model sunucusuna ulaşılamıyor. Çalışıyor mu?"
+
+msgid "The local model server gave an error. Check the model name and that it can read images"
+msgstr "Yerel model sunucusu hata verdi. Model adını ve modelin görüntü okuyabildiğini kontrol et"
+
+msgid "AI model"
+msgstr "AI modeli"
+
+msgid "Claude (Anthropic, over the internet)"
+msgstr "Claude (Anthropic, internet üzerinden)"
+
+msgid "Local model server on this computer"
+msgstr "Bu bilgisayardaki yerel model sunucusu"
+
+msgid "Local server address (OpenAI-compatible, for example Ollama)"
+msgstr "Yerel sunucu adresi (OpenAI uyumlu, örneğin Ollama)"
+
+msgid "Local model name (it must be able to read images)"
+msgstr "Yerel model adı (görüntü okuyabilmeli)"
+
+msgid "Enter a local model name and a server address on this computer (localhost or 127.0.0.1)."
+msgstr "Bir yerel model adı ve bu bilgisayardaki bir sunucu adresi gir (localhost veya 127.0.0.1)."
+
 msgid "Explains the navigator object with AI"
 msgstr "Navigator nesnesini AI ile açıklar"
 

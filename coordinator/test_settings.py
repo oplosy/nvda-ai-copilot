@@ -13,7 +13,7 @@ CONTEXT = {"page": PAGE, "element": {"tag": "div"}, "screenshot": "shot"}
 
 class SettingsTest(unittest.TestCase):
 	def test_malformed_settings_fall_back_to_defaults(self):
-		default = {"screenshots": True, "blockedSites": [], "language": "tr"}
+		default = {"screenshots": True, "blockedSites": [], "language": "tr", "provider": "claude", "localUrl": "", "localModel": ""}
 		for raw in (None, "x", {"screenshots": "no", "blockedSites": "bank.example", "language": "../etc"}):
 			self.assertEqual(parse_settings(raw), default)
 
@@ -22,7 +22,7 @@ class SettingsTest(unittest.TestCase):
 		self.assertEqual(site_host("*.bank.example"), "bank.example")
 		self.assertIsNone(site_host("not a site"))
 		s = parse_settings({"blockedSites": ["bank.example", "bad site", 5], "screenshots": False, "language": "pt_BR"})
-		self.assertEqual(s, {"screenshots": False, "blockedSites": ["bank.example"], "language": "pt_BR"})
+		self.assertEqual(s, {"screenshots": False, "blockedSites": ["bank.example"], "language": "pt_BR", "provider": "claude", "localUrl": "", "localModel": ""})
 
 	def test_blocked_site_never_reaches_the_model(self):
 		c = Coordinator(lambda msg: dict(CONTEXT), explain=lambda *a: self.fail("model called"))

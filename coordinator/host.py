@@ -46,6 +46,7 @@ CACHE_TTL_S = 30 * 60
 MAX_BLOCKED_SITES = 200
 SITE = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)*")
 LANGUAGE_CODE = re.compile(r"[A-Za-z]{2,3}([_-][A-Za-z0-9]{2,8})?")
+MODEL_NAME = re.compile(r"[\w.:/@+-]{1,100}")
 
 log = logging.getLogger("coordinator")
 
@@ -71,10 +72,15 @@ def parse_settings(raw):
 	sites = raw.get("blockedSites") if isinstance(raw.get("blockedSites"), list) else []
 	hosts = [site_host(s) for s in sites[:MAX_BLOCKED_SITES] if isinstance(s, str)]
 	language = raw.get("language")
+	url, model = raw.get("localUrl"), raw.get("localModel")
 	return {
 		"screenshots": raw.get("screenshots") is not False,
 		"blockedSites": [h for h in hosts if h],
 		"language": language if isinstance(language, str) and LANGUAGE_CODE.fullmatch(language) else llm.DEFAULT_LANGUAGE,
+		# A bad local address or model stays local and fails; it never turns into a cloud call.
+		"provider": "local" if raw.get("provider") == "local" else "claude",
+		"localUrl": url if isinstance(url, str) and len(url) <= 200 else "",
+		"localModel": model if isinstance(model, str) and MODEL_NAME.fullmatch(model) else "",
 	}
 
 
@@ -132,23 +138,23 @@ class Coordinator:
 		# The defaults answer in the person's language and stream sentences through self._emit.
 		# explain(data, screenshot, task) -> spoken text
 		self.explain_fn = explain or (
-			lambda ctx, shot, task: llm.explain(llm.default_client(), ctx, shot, task, self.settings["language"], self._emit)
+			lambda ctx, shot, task: llm.explain(llm.client_for(self.settings), ctx, shot, task, self.settings["language"], self._emit)
 		)
 		# choose(data, screenshot, user_request, choices) -> (element ID in choices or None, spoken reason)
 		self.choose_fn = choose or (
-			lambda ctx, shot, q, ids: llm.choose(llm.default_client(), ctx, shot, q, ids, self.settings["language"])
+			lambda ctx, shot, q, ids: llm.choose(llm.client_for(self.settings), ctx, shot, q, ids, self.settings["language"])
 		)
 		# sections(data, screenshot, choices) -> [(element ID in choices, title)]
 		self.sections_fn = sections or (
-			lambda ctx, shot, ids: llm.sections(llm.default_client(), ctx, shot, ids, self.settings["language"])
+			lambda ctx, shot, ids: llm.sections(llm.client_for(self.settings), ctx, shot, ids, self.settings["language"])
 		)
 		# followup(data, screenshot, task, turns, question) -> spoken text
 		self.followup_fn = followup or (
-			lambda *a: llm.followup(llm.default_client(), *a, self.settings["language"], self._emit)
+			lambda *a: llm.followup(llm.client_for(self.settings), *a, self.settings["language"], self._emit)
 		)
 		# guide(data, screenshot, goal, steps, choices) -> (element ID in choices or None, instruction, done)
 		self.guide_fn = guide or (
-			lambda ctx, shot, goal, steps, ids: llm.guide(llm.default_client(), ctx, shot, goal, steps, ids, self.settings["language"])
+			lambda ctx, shot, goal, steps, ids: llm.guide(llm.client_for(self.settings), ctx, shot, goal, steps, ids, self.settings["language"])
 		)
 		self.guide = None  # {"goal", "steps", "at"} of the task being guided
 		self.settings = parse_settings(None)  # replaced by each request's settings
@@ -380,7 +386,7 @@ class Coordinator:
 		data = redact({"page": ctx["page"], key: ctx[key]})
 		shot = ctx.get("screenshot")
 		log.info("%s: screenshot=%s chars, data=%s chars", task, len(shot or ""), len(json.dumps(data)))
-		cache_input = [task, data, self.settings["language"]]
+		cache_input = [task, data, self.settings["language"], self.settings["provider"], self.settings["localModel"]]
 		key = hashlib.sha256(json.dumps(cache_input, sort_keys=True).encode()).hexdigest() if task in CACHED_TASKS else None
 		hit = self.cache.get(key)
 		if hit and time.monotonic() - hit[1] < CACHE_TTL_S:

@@ -43,7 +43,11 @@ CONF_SECTION = "nvdaAiCopilot"
 config.conf.spec[CONF_SECTION] = {
 	"sendScreenshots": "boolean(default=True)",
 	"blockedSites": "string(default='')",  # host names separated by spaces
+	"provider": "string(default='claude')",  # claude or local
+	"localUrl": "string(default='http://127.0.0.1:11434/v1')",  # Ollama's OpenAI-compatible address
+	"localModel": "string(default='')",
 }
+PROVIDERS = ("claude", "local")
 
 
 def _navContext(obj):
@@ -69,6 +73,9 @@ def _settings():
 		"screenshots": bool(conf["sendScreenshots"]),
 		"blockedSites": conf["blockedSites"].split(),
 		"language": languageHandler.getLanguage(),
+		"provider": conf["provider"],
+		"localUrl": conf["localUrl"],
+		"localModel": conf["localModel"],
 	}
 
 
@@ -153,6 +160,9 @@ def _messages():
 		"no_chart": _("There is no chart drawn as SVG in or around this element"),
 		"no_guide": _("No guided task is running; start one first"),
 		"guide_too_long": _("The guided task took too many steps and is stopped"),
+		"local_invalid": _("The local model server address or model name is not set correctly in NVDA settings"),
+		"local_unreachable": _("Cannot reach the local model server. Is it running?"),
+		"local_error": _("The local model server gave an error. Check the model name and that it can read images"),
 		"no_label": _("Saving works on the last element explanation; explain an element first"),
 		"label_unidentifiable": _("Nothing identifies this element on a later visit, so it cannot be saved"),
 		"label_saved": _("Saved: this AI comment is spoken at once on later visits"),
@@ -328,6 +338,15 @@ def _browserFocused():
 SITE = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)*")
 
 
+def _localUrlOk(url):
+	"""Same rule as the coordinator: only a server on this computer."""
+	try:
+		parts = urlsplit(url)
+		return parts.scheme in ("http", "https") and parts.hostname in ("localhost", "127.0.0.1", "::1")
+	except ValueError:
+		return False
+
+
 def _siteHost(entry):
 	"""Same normalization as the coordinator's site_host: URL, *.host or host -> host, or None."""
 	entry = entry.strip().lower()
@@ -361,6 +380,20 @@ class CopilotSettingsPanel(settingsDialogs.SettingsPanel):
 			_("Sites where Copilot is off, separated by spaces or commas (for example mybank.com)"), wx.TextCtrl
 		)
 		self.sitesEdit.SetValue(", ".join(conf["blockedSites"].split()))
+		self.providerChoice = helper.addLabeledControl(
+			# Translators: label of the choice between the cloud model and a local one.
+			_("AI model"),
+			wx.Choice,
+			# Translators: the two AI model choices.
+			choices=[_("Claude (Anthropic, over the internet)"), _("Local model server on this computer")],
+		)
+		self.providerChoice.SetSelection(PROVIDERS.index(conf["provider"]) if conf["provider"] in PROVIDERS else 0)
+		# Translators: label of the local model server address field.
+		self.localUrlEdit = helper.addLabeledControl(_("Local server address (OpenAI-compatible, for example Ollama)"), wx.TextCtrl)
+		self.localUrlEdit.SetValue(conf["localUrl"])
+		# Translators: label of the local model name field.
+		self.localModelEdit = helper.addLabeledControl(_("Local model name (it must be able to read images)"), wx.TextCtrl)
+		self.localModelEdit.SetValue(conf["localModel"])
 
 	def _siteEntries(self):
 		return [s for s in re.split(r"[\s,;]+", self.sitesEdit.GetValue()) if s]
@@ -370,6 +403,12 @@ class CopilotSettingsPanel(settingsDialogs.SettingsPanel):
 		if key and not secret.valid_key(key):
 			# Translators: error when the pasted API key has spaces or non-ASCII characters.
 			gui.messageBox(_("The API key looks invalid: it must not contain spaces or special characters."), "NVDA AI Copilot", wx.OK | wx.ICON_ERROR, self)
+			return False
+		if PROVIDERS[self.providerChoice.GetSelection()] == "local" and not (
+			_localUrlOk(self.localUrlEdit.GetValue().strip()) and self.localModelEdit.GetValue().strip()
+		):
+			# Translators: error when the local model settings are incomplete or not local.
+			gui.messageBox(_("Enter a local model name and a server address on this computer (localhost or 127.0.0.1)."), "NVDA AI Copilot", wx.OK | wx.ICON_ERROR, self)
 			return False
 		bad = [s for s in self._siteEntries() if not _siteHost(s)]
 		if bad:
@@ -382,6 +421,9 @@ class CopilotSettingsPanel(settingsDialogs.SettingsPanel):
 		conf = config.conf[CONF_SECTION]
 		conf["sendScreenshots"] = self.screenshotsCheck.IsChecked()
 		conf["blockedSites"] = " ".join(dict.fromkeys(_siteHost(s) for s in self._siteEntries()))
+		conf["provider"] = PROVIDERS[self.providerChoice.GetSelection()]
+		conf["localUrl"] = self.localUrlEdit.GetValue().strip()
+		conf["localModel"] = self.localModelEdit.GetValue().strip()
 		key = self.keyEdit.GetValue().strip()
 		try:
 			if key:

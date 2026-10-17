@@ -221,10 +221,18 @@ function focusElement(el) {
   return el.ownerDocument.activeElement === el;
 }
 
+// Open or closed shadow root; chrome.dom reaches closed ones from a content script.
+function shadowRootOf(el) {
+  return globalThis.chrome?.dom?.openOrClosedShadowRoot?.(el) ?? el.shadowRoot ?? null;
+}
+
 function sensitiveRects(elements) {
   const rects = [];
   for (const el of elements) {
-    if (!isSensitiveField(el)) continue;
+    const shadow = shadowRootOf(el);
+    if (shadow) rects.push(...sensitiveRects(shadow.querySelectorAll('*')));
+    // Payment providers put card fields in cross-origin iframes we cannot inspect, so every iframe is masked.
+    if (el.tagName.toLowerCase() !== 'iframe' && !isSensitiveField(el)) continue;
     const r = el.getBoundingClientRect();
     if (r.width > 0 && r.height > 0) rects.push([r.x, r.y, r.width, r.height]);
   }

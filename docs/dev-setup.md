@@ -62,8 +62,9 @@ as untrusted data inside `<page_data>`.
    python nvda-addon\build.py
    ```
 
-   The package (`nvda-addon/dist/nvdaAiCopilot-<version>.nvda-addon`) also contains the spike
-   commands from `docs/spike-dom-mapping.md`. Rebuild and reinstall after changing the plugin.
+   The package (`nvda-addon/dist/nvdaAiCopilot-<version>.nvda-addon`) does not contain the spike
+   commands; load `nvda-addon/spike/nvaiSpike.py` as `docs/spike-dom-mapping.md` describes.
+   Rebuild and reinstall after changing the plugin.
 
 ## Checks
 

@@ -116,7 +116,8 @@ def build_request(context, screenshot_b64, task="explain", user_request=None, ch
 	}
 
 
-TIMEOUT_S = 30
+# Two attempts plus retry backoff must finish before the NVDA add-on stops waiting (45 s).
+TIMEOUT_S = 20
 
 _client = None
 

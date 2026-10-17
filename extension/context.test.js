@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { isSensitiveField, cropBox } = require('./context.js');
+const { isSensitiveField, sensitiveRects, cropBox } = require('./context.js');
 
 function field(tagName, attrs = {}, labels = []) {
   return { tagName, getAttribute: (n) => attrs[n] ?? null, labels: labels.map((t) => ({ textContent: t })) };
@@ -30,4 +30,16 @@ test('cropBox is null for elements outside the viewport', () => {
   assert.strictEqual(cropBox([0, 700, 50, 40], [800, 600], 1), null);
   assert.strictEqual(cropBox([-80, 0, 50, 40], [800, 600], 1), null);
   assert.strictEqual(cropBox([10, 10, 0, 0], [800, 600], 1), null);
+});
+
+test('sensitive fields, iframes and fields inside shadow roots are masked', () => {
+  const at = (el, x) => Object.assign(el, { getBoundingClientRect: () => ({ x, y: 0, width: 10, height: 10 }) });
+  const password = at(field('INPUT', { type: 'password' }), 1);
+  const iframe = at(field('IFRAME'), 2);
+  const hiddenPassword = at(field('INPUT', { type: 'password' }), 3);
+  const host = at(field('MY-LOGIN'), 4);
+  host.shadowRoot = { querySelectorAll: () => [hiddenPassword] };
+  const plain = at(field('INPUT', { name: 'q' }), 5);
+  const xs = sensitiveRects([password, iframe, host, plain]).map((r) => r[0]);
+  assert.deepStrictEqual(xs.sort(), [1, 2, 3]);
 });

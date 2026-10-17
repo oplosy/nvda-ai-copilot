@@ -8,7 +8,6 @@ HERE = Path(__file__).resolve().parent
 FILES = {
 	"manifest.ini": HERE / "manifest.ini",
 	"globalPlugins/nvdaAiCopilot.py": HERE / "globalPlugins" / "nvdaAiCopilot.py",
-	"globalPlugins/nvaiSpike.py": HERE / "spike" / "nvaiSpike.py",
 }
 
 

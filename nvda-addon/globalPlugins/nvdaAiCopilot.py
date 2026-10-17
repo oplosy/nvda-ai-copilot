@@ -20,7 +20,7 @@ from scriptHandler import script
 
 SESSION_FILE = os.path.join(os.environ["LOCALAPPDATA"], "nvda-ai-copilot", "session.json")
 REQUEST_TIMEOUT_S = 5
-EXPLAIN_TIMEOUT_S = 45  # covers the model call (coordinator client timeout is 30 s + one retry)
+EXPLAIN_TIMEOUT_S = 45  # covers the model call (coordinator: 20 s timeout, one retry, ~41 s worst case)
 # The class attribute showed up 15-31 ms after the DOM change in Chrome 155; poll fast, give up after 0.5 s.
 MARKER_POLL_MS = 25
 MARKER_POLL_TRIES = 20
@@ -71,7 +71,9 @@ def _call(msg, timeout=REQUEST_TIMEOUT_S):
 		log.warning(f"nvdaAiCopilot: coordinator request failed: {e}")
 		_onMain(ui.message, "Copilot: koordinatöre ulaşılamadı. Chrome ve eklenti açık mı?")
 		return None
-	log.info(f"nvdaAiCopilot: {msg['type']} nonce={msg.get('nonce')} -> {reply}")
+	# The NVDA log gets pasted into bug reports, so AI text about the page stays out of it.
+	logged = {k: v for k, v in reply.items() if k != "text"}
+	log.info(f"nvdaAiCopilot: {msg['type']} nonce={msg.get('nonce')} -> {logged}")
 	return reply
 
 

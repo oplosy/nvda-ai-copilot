@@ -116,9 +116,10 @@ class Coordinator:
 		choices = sorted({item["id"] for part in ("headings", "landmarks", "controls") for item in outline[part]})
 		data = redact({"page": ctx["page"], "outline": outline})
 		shot = ctx.get("screenshot")
-		log.info("find %r: %s choices, screenshot=%s chars", query, len(choices), len(shot or ""))
+		# Queries and AI text are not logged: they describe what the user is doing on the page.
+		log.info("find: %s choices, screenshot=%s chars", len(choices), len(shot or ""))
 		element_id, reason = self.choose_fn(data, shot, query, choices)
-		log.info("find %r -> %s %r", query, element_id, reason)
+		log.info("find -> %s", element_id)
 		if element_id is None:
 			return {"status": "none", "text": reason}
 		focused = self.ask({"type": "focus", "elementId": element_id}).get("focused")
@@ -132,7 +133,7 @@ class Coordinator:
 		shot = ctx.get("screenshot")
 		log.info("%s: screenshot=%s chars, data=%s chars", task, len(shot or ""), len(json.dumps(data)))
 		text = self.explain_fn(data, shot, task)
-		log.info("%s -> %r", task, text)
+		log.info("%s -> %s chars", task, len(text))
 		return text
 
 	def locate(self, nav, nonce=None):

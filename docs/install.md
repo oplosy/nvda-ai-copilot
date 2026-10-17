@@ -1,11 +1,13 @@
 # Install (end users)
 
-You need Windows 10 or 11 (64-bit), NVDA 2024.1 or newer, Google Chrome and an Anthropic API key.
+You need Windows 10 or 11 (64-bit), NVDA 2024.1 or newer, Google Chrome or Microsoft Edge and an
+Anthropic API key.
 
-1. **Coordinator:** close Chrome. Extract `nvda-ai-copilot-coordinator.zip` to any folder and run
+1. **Coordinator:** close Chrome and Edge. Extract `nvda-ai-copilot-coordinator.zip` to any folder and run
    `install.bat` there. It copies itself to `%LOCALAPPDATA%\Programs\nvda-ai-copilot` and registers
-   with Chrome; the extracted folder can be deleted afterwards.
-2. **Chrome extension:** until it is published in the Chrome Web Store, open `chrome://extensions`,
+   with Chrome and Edge; the extracted folder can be deleted afterwards.
+2. **Browser extension:** until it is published in the Chrome Web Store, open `chrome://extensions`
+   (Edge: `edge://extensions`),
    turn on Developer mode, choose *Load unpacked* and select the `extension` folder.
 3. **NVDA add-on:** open `nvdaAiCopilot-<version>.nvda-addon`; NVDA asks to install and restart.
 4. **API key:** NVDA menu → Preferences → Settings → *NVDA AI Copilot*. Paste the key and press OK.
@@ -13,9 +15,13 @@ You need Windows 10 or 11 (64-bit), NVDA 2024.1 or newer, Google Chrome and an A
    remove it.
 
 Shortcuts in Chrome browse mode: NVDA+Alt+Shift+E (explain element), P (summarize page),
-F (find), R (form help), C (what changed after my last click or key press), B (list of page parts;
-pick one to move there), Q (follow-up question about the last answer). AI output always starts with
-"AI yorumu:". Shortcuts can be changed in NVDA's Input gestures dialog.
+F (find), R (form help), T (table help), C (what changed after my last click or key press),
+B (list of page parts; pick one to move there), Q (follow-up question about the last answer). AI
+output always starts with "AI comment:" ("AI yorumu:" in Turkish) and is in NVDA's language.
+Shortcuts can be changed in NVDA's Input gestures dialog, category NVDA AI Copilot.
+
+**Privacy settings** (same NVDA settings page): turn off *Send screenshots to the AI* and no
+screenshot is taken; list sites (for example your bank) where Copilot sends nothing.
 
 **Uninstall:** run `uninstall.bat` in `%LOCALAPPDATA%\Programs\nvda-ai-copilot`, remove the add-on
 in NVDA's Add-on Store and the extension in Chrome. Logs stay in `%LOCALAPPDATA%\nvda-ai-copilot`.

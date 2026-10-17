@@ -28,6 +28,16 @@ In Chrome browse mode:
   data and screenshot. Follow-ups chain.
 - **NVDA+Alt+Shift+L**: grounding only (debug). Speaks the extension element ID (`e_N`).
 
+Settings travel with every request from the add-on (NVDA settings → NVDA AI Copilot): send
+screenshots (off: the extension takes none), sites where Copilot is off (the coordinator refuses
+before anything reaches the model, follow-ups included) and NVDA's language, which the prompts
+answer in. Text answers stream: the coordinator sends finished sentences as `partial` lines and
+the add-on speaks them at once. Element explanations are cached for 30 minutes per element state.
+The coordinator log has extension, first-sentence and total times for every request.
+
+Same-origin iframes are read like the page; cross-origin frames are masked whole in screenshots.
+What-changed watches the top document only.
+
 All text sent to the model goes through `safeText()` in `extension/context.js`, which skips form
 fields and `contenteditable` regions, so typed text never leaves through `innerText`.
 
@@ -97,6 +107,18 @@ cd coordinator; .venv\Scripts\python -m unittest
 npm install
 node --test "extension/*.test.js"
 ```
+
+Answer quality and speed (`eval/`): 11 inaccessible cases built by the real extension code in
+jsdom (no screenshots), sent through the real coordinator. Without `--dry-run` it calls the API once
+per case; `--model` compares another model.
+
+```powershell
+coordinator\.venv\Scripts\python eval\run.py --dry-run
+coordinator\.venv\Scripts\python eval\run.py
+```
+
+Add-on translations: English source strings in `_()`, `nvda-addon/locale/<lang>/LC_MESSAGES/nvda.po`.
+`build.py` compiles them and stops if a string has no translation.
 
 ## Release build
 

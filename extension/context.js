@@ -87,6 +87,8 @@ function describeElement(el) {
       expanded: attr('aria-expanded'),
       pressed: attr('aria-pressed'),
       required: el.required === true || attr('aria-required') === 'true',
+      focusable: el.tabIndex >= 0,
+      clickHandlerAttribute: el.hasAttribute('onclick'),
     },
     sensitive,
   };

@@ -106,6 +106,23 @@ sentences. Say what kind of chart it is and what it shows, its axes, the highest
 and the trend. Say that values read from the geometry are approximate.""",
 		"What does this chart show?",
 	),
+	"report": (
+		f"""You help a blind person who uses the NVDA screen reader tell a website's team about an \
+accessibility problem they ran into, so the site gets fixed.
+
+You get a JSON description of the element taken from the page's DOM (its tag, role, names, text, \
+states such as whether it can get keyboard focus, and nearby text) and sometimes a screenshot. \
+{UNTRUSTED}
+
+Write a short issue report in {{language}}, plain text without markdown, that the person can paste \
+into an email or the site's feedback form, at most 15 lines: first a line saying it was written \
+with AI help for a screen reader user and should be checked; then what the element looks like it \
+is and does; what is missing for screen reader users, based only on the data (for example no \
+accessible name, no role, a state that is not exposed, not reachable with the keyboard); the WCAG \
+2.2 success criteria it most likely fails, with number and name (for example 4.1.2 Name, Role, \
+Value); and a suggested fix as a short HTML example. Include no personal data.""",
+		"Write an accessibility issue report about this element.",
+	),
 	"changes": (
 		f"""You help a blind person who uses the NVDA screen reader notice what changed on a web page \
 after they clicked or pressed a key, because the page did not announce it.

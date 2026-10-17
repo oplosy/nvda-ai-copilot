@@ -23,7 +23,7 @@ from urllib.parse import urlsplit
 import llm
 import native
 from grounding import resolve
-from privacy import redact
+from privacy import mask_cards, redact
 
 DATA_DIR = Path(os.environ["LOCALAPPDATA"]) / "nvda-ai-copilot"
 # shortcut: one session file per user, so the last started Chrome profile wins; key by profile if needed.
@@ -176,6 +176,8 @@ class Coordinator:
 				return self.locate(req["nav"], req.get("nonce"))
 			if kind == "explain" and isinstance(req.get("elementId"), str):
 				return self.explain(req["elementId"])
+			if kind == "report" and isinstance(req.get("elementId"), str):
+				return self.report(req["elementId"])
 			if kind == "summarize":
 				return self.summarize()
 			if kind == "form" and isinstance(req.get("elementId"), str):
@@ -222,6 +224,18 @@ class Coordinator:
 		ctx = self._page({"type": "context", "elementId": element_id})
 		text = self._ask_model(ctx, "element", "explain")
 		return {"status": "explained", "elementId": element_id, "text": text}
+
+	def report(self, element_id):
+		ctx = self._page({"type": "context", "elementId": element_id})
+		emit, self._emit = self._emit, None  # a report is pasted to the site, not read out sentence by sentence
+		try:
+			body = self._ask_model(ctx, "element", "report")
+		finally:
+			self._emit = emit
+		url = ctx.get("url")
+		origin = ctx["page"]["origin"]
+		url = mask_cards(url) if isinstance(url, str) and url.startswith(origin) else origin
+		return {"status": "report", "text": f"{url}\n\n{body}"}
 
 	def summarize(self):
 		ctx = self._page({"type": "outline"})

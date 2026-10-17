@@ -180,6 +180,21 @@ def _describe(reply):
 	return _("Copilot error: {text}").format(text=text)
 
 
+def _report(located):
+	"""Worker thread: the AI writes an issue report for the site; it goes to the clipboard, not to speech."""
+	# Translators: spoken while the AI writes an accessibility report.
+	_onMain(ui.message, _("Copilot: writing an accessibility report"))
+	reply = _call({"type": "report", "elementId": located["elementId"]}, EXPLAIN_TIMEOUT_S)
+	if reply is None:
+		return
+	if reply.get("status") == "report":
+		_onMain(api.copyToClip, reply["text"])
+		# Translators: spoken when the AI-written report is on the clipboard.
+		_onMain(ui.message, _("Copilot: an AI-written accessibility report is on the clipboard. Paste it into an email or the site's feedback form."))
+	else:
+		_onMain(ui.message, _describe(reply))
+
+
 def _find(query):
 	"""Worker thread: the coordinator picks an element, the extension focuses it, NVDA follows focus."""
 	# Translators: spoken while the AI looks for what the user asked for.
@@ -383,6 +398,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if obj:
 			onMatched = lambda located: _askModel({"type": "chart", "elementId": located["elementId"]})  # noqa: E731
 			self._locate(obj, {"type": "locate", "nav": _navContext(obj)}, onMatched)
+
+	# Translators: input gesture description.
+	@script(description=_("Writes an accessibility issue report about the navigator object for the site, to the clipboard"), gesture="kb:NVDA+alt+shift+s")
+	def script_report(self, gesture):
+		obj = _webNavigator()
+		if obj:
+			self._locate(obj, {"type": "locate", "nav": _navContext(obj)}, _report)
 
 	# Translators: input gesture description.
 	@script(description=_("Summarizes the current web page with AI"), gesture="kb:NVDA+alt+shift+p")

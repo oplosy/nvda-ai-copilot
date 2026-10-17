@@ -171,6 +171,29 @@ class ChartTest(unittest.TestCase):
 		self.assertIn("approximate", llm.build_request({}, None, "chart")["system"])
 
 
+class ReportTest(unittest.TestCase):
+	def test_report_is_not_streamed_and_carries_the_page_address(self):
+		ctx = {"page": PAGE, "element": {"tag": "div"}, "url": "https://shop.example/odeme/4111111111111111", "screenshot": None}
+		holder, seen = {}, {}
+
+		def explain(data, shot, task):
+			seen.update(data=data, task=task, emit=holder["c"]._emit)
+			return "AI ile yazıldı.\nWCAG 4.1.2"
+
+		c = holder["c"] = Coordinator(lambda msg: dict(ctx), explain=explain)
+		emitted = []
+		r = c.handle({"type": "report", "elementId": "e_4"}, emitted.append)
+		self.assertEqual(r["status"], "report")
+		self.assertTrue(r["text"].startswith("https://shop.example/odeme/[kart numarası gizlendi]\n\n"))
+		self.assertEqual((seen["task"], seen["emit"], emitted), ("report", None, []))
+		self.assertNotIn("url", seen["data"])  # the address is for the header only
+
+	def test_foreign_address_falls_back_to_the_origin(self):
+		ctx = {"page": PAGE, "element": {"tag": "div"}, "url": "https://evil.example/x"}
+		r = Coordinator(lambda msg: dict(ctx), explain=lambda *a: "Rapor").handle({"type": "report", "elementId": "e_4"})
+		self.assertTrue(r["text"].startswith("https://shop.example\n\n"))
+
+
 class CacheTest(unittest.TestCase):
 	def test_same_element_is_answered_once_until_it_expires(self):
 		ctx = {"page": PAGE, "element": {"tag": "div", "states": {"expanded": "false"}}, "screenshot": "shot"}

@@ -76,6 +76,15 @@ msgstr "Navigator nesnesinin bulunduğu grafiği AI ile açıklar"
 msgid "There is no chart drawn as SVG in or around this element"
 msgstr "Bu öğenin içinde veya çevresinde SVG ile çizilmiş bir grafik yok"
 
+msgid "Copilot: writing an accessibility report"
+msgstr "Copilot: erişilebilirlik raporu yazılıyor"
+
+msgid "Copilot: an AI-written accessibility report is on the clipboard. Paste it into an email or the site's feedback form."
+msgstr "Copilot: AI ile yazılmış erişilebilirlik raporu panoda. Bir e-postaya veya sitenin geri bildirim formuna yapıştır."
+
+msgid "Writes an accessibility issue report about the navigator object for the site, to the clipboard"
+msgstr "Navigator nesnesi için siteye gönderilecek erişilebilirlik raporu yazar ve panoya kopyalar"
+
 msgid "Explains the navigator object with AI"
 msgstr "Navigator nesnesini AI ile açıklar"
 

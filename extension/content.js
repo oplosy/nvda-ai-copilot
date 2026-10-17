@@ -23,6 +23,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     sendResponse({
       page: { origin: location.origin, title: clip(document.title, 150) },
       element: describeElement(el),
+      url: location.origin + location.pathname, // report header only; never sent to the model
       rect: topRect(el),
       viewport: [innerWidth, innerHeight],
       sensitiveRects: sensitiveRects(all),

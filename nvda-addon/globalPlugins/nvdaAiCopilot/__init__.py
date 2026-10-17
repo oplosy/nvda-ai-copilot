@@ -72,7 +72,7 @@ def _call(msg, timeout=REQUEST_TIMEOUT_S):
 		return None
 	except (OSError, ValueError, KeyError) as e:
 		log.warning(f"nvdaAiCopilot: coordinator request failed: {e}")
-		_onMain(ui.message, "Copilot: koordinatöre ulaşılamadı. Chrome ve eklenti açık mı?")
+		_onMain(ui.message, "Copilot: koordinatöre ulaşılamadı. Tarayıcı ve eklenti açık mı?")
 		return None
 	# The NVDA log gets pasted into bug reports, so AI text about the page stays out of it.
 	logged = {k: v for k, v in reply.items() if k != "text"}
@@ -183,12 +183,23 @@ def _focusSection(elementId):
 		_onMain(ui.message, "Copilot: odak taşınamadı")
 
 
+# Chromium browsers the extension runs in.
+BROWSERS = ("chrome", "msedge")
+
+
 def _webNavigator():
 	obj = api.getNavigatorObject()
-	if not isinstance(obj, IAccessible) or obj.appModule.appName != "chrome":
-		ui.message("Copilot: navigator nesnesi bir Chrome web öğesi değil")
+	if not isinstance(obj, IAccessible) or obj.appModule.appName not in BROWSERS:
+		ui.message("Copilot: navigator nesnesi bir Chrome veya Edge web öğesi değil")
 		return None
 	return obj
+
+
+def _browserFocused():
+	if api.getFocusObject().appModule.appName in BROWSERS:
+		return True
+	ui.message("Copilot: odak Chrome veya Edge'de değil")
+	return False
 
 
 class CopilotSettingsPanel(settingsDialogs.SettingsPanel):
@@ -253,29 +264,25 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	@script(description="NVDA AI Copilot: summarize the current web page with AI", gesture="kb:NVDA+alt+shift+p")
 	def script_summarize(self, gesture):
-		if api.getFocusObject().appModule.appName != "chrome":
-			ui.message("Copilot: odak Chrome'da değil")
+		if not _browserFocused():
 			return
 		threading.Thread(target=_askModel, args=({"type": "summarize"},), daemon=True).start()
 
 	@script(description="NVDA AI Copilot: find something on the web page with AI and move there", gesture="kb:NVDA+alt+shift+f")
 	def script_find(self, gesture):
-		if api.getFocusObject().appModule.appName != "chrome":
-			ui.message("Copilot: odak Chrome'da değil")
+		if not _browserFocused():
 			return
 		wx.CallAfter(_askText, "Sayfada ne arıyorsun?", _find)
 
 	@script(description="NVDA AI Copilot: say what changed on the page since the last click or key press", gesture="kb:NVDA+alt+shift+c")
 	def script_changes(self, gesture):
-		if api.getFocusObject().appModule.appName != "chrome":
-			ui.message("Copilot: odak Chrome'da değil")
+		if not _browserFocused():
 			return
 		threading.Thread(target=_askModel, args=({"type": "changes"},), daemon=True).start()
 
 	@script(description="NVDA AI Copilot: list the page's parts found by AI and move to one", gesture="kb:NVDA+alt+shift+b")
 	def script_sections(self, gesture):
-		if api.getFocusObject().appModule.appName != "chrome":
-			ui.message("Copilot: odak Chrome'da değil")
+		if not _browserFocused():
 			return
 		threading.Thread(target=_sections, daemon=True).start()
 

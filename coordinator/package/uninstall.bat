@@ -4,7 +4,7 @@ rem Unregisters the native host and deletes this folder. The saved API key and l
 rem %LOCALAPPDATA%\nvda-ai-copilot; the NVDA settings panel can delete the key.
 "%~dp0python\python.exe" "%~dp0app\install_host.py" --uninstall
 if errorlevel 1 (
-  echo Chrome kaydı silinemedi.
+  echo Tarayıcı kaydı silinemedi.
   pause
   exit /b 1
 )

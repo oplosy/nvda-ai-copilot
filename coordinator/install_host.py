@@ -1,4 +1,4 @@
-"""Register the coordinator as a Chrome native messaging host for the current user.
+"""Register the coordinator as a Chrome and Edge native messaging host for the current user.
 
 Usage: python install_host.py [extension-id]
        python install_host.py --uninstall
@@ -15,17 +15,22 @@ HOST = "com.nvda_ai_copilot.coordinator"
 EXTENSION_ID = "ijifaphfddholfknhblhfnoajaekjgnj"
 
 
-REG_KEY = rf"Software\Google\Chrome\NativeMessagingHosts\{HOST}"
+# Edge reads its own key; both point at the same manifest (same extension ID from the pinned key).
+REG_KEYS = [
+	rf"Software\Google\Chrome\NativeMessagingHosts\{HOST}",
+	rf"Software\Microsoft\Edge\NativeMessagingHosts\{HOST}",
+]
 
 
 def main():
 	here = Path(__file__).resolve().parent
 	manifest_path = here / f"{HOST}.json"
 	if sys.argv[1:] == ["--uninstall"]:
-		try:
-			winreg.DeleteKey(winreg.HKEY_CURRENT_USER, REG_KEY)
-		except FileNotFoundError:
-			pass
+		for key in REG_KEYS:
+			try:
+				winreg.DeleteKey(winreg.HKEY_CURRENT_USER, key)
+			except FileNotFoundError:
+				pass
 		manifest_path.unlink(missing_ok=True)
 		print(f"Unregistered {HOST}")
 		return
@@ -45,7 +50,8 @@ def main():
 		),
 		encoding="utf-8",
 	)
-	winreg.SetValue(winreg.HKEY_CURRENT_USER, REG_KEY, winreg.REG_SZ, str(manifest_path))
+	for key in REG_KEYS:
+		winreg.SetValue(winreg.HKEY_CURRENT_USER, key, winreg.REG_SZ, str(manifest_path))
 	print(f"Registered {HOST} for {ext_id} -> {manifest_path}")
 
 

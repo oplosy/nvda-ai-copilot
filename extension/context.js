@@ -118,10 +118,10 @@ function isVisible(el) {
 function pageOutline(doc) {
   const [vw, vh] = [doc.defaultView.innerWidth, doc.defaultView.innerHeight];
   const inView = (el) => {
-    const r = el.getBoundingClientRect();
-    return r.bottom > 0 && r.right > 0 && r.top < vh && r.left < vw;
+    const [x, y, w, h] = topRect(el);
+    return y + h > 0 && x + w > 0 && y < vh && x < vw;
   };
-  const visible = (sel) => Array.from(doc.querySelectorAll(sel)).filter(isVisible);
+  const visible = (sel) => visibleMatches(doc, sel);
   const found = visible(CONTROLS).map((el) => ({ el, inViewport: inView(el) }));
   found.sort((a, b) => b.inViewport - a.inViewport); // stable: document order within each group
   // Names walk text nodes, so only the controls that are sent get one.
@@ -150,7 +150,8 @@ function pageOutline(doc) {
 }
 
 const HEADINGS = 'h1, h2, h3, h4, h5, h6, [role=heading]';
-const visibleMatches = (root, sel) => Array.from(root.querySelectorAll(sel)).filter(isVisible);
+// Matches in doc and its same-origin frames.
+const visibleMatches = (doc, sel) => frameDocs(doc).flatMap((d) => Array.from(d.querySelectorAll(sel))).filter(isVisible);
 
 function pageHeadings(doc) {
   return visibleMatches(doc, HEADINGS).map((el) => ({
@@ -182,8 +183,11 @@ const BLOCK_SPLIT_MIN_CHARS = 400; // a block with less text is small enough to 
 function pageBlocks(doc, limit = BLOCK_LIMIT) {
   const sizes = new Map();
   // Length only, to rank blocks; the content sent is read with safeText.
-  const size = (el) => sizes.get(el) ?? sizes.set(el, (el.textContent || '').length).get(el);
-  const parts = (el) => Array.from(el.children).filter((c) => !c.matches(NO_TEXT) && size(c) > 20 && isVisible(c));
+  // A same-origin frame is a block whose parts are its body's children.
+  const inner = (el) => (el.matches('iframe, frame') ? frameDocument(el)?.body : null);
+  const size = (el) => sizes.get(el) ?? sizes.set(el, ((inner(el) || el).textContent || '').length).get(el);
+  const parts = (el) =>
+    Array.from((inner(el) || el).children).filter((c) => !c.matches(NO_TEXT) && size(c) > 20 && isVisible(c));
   const unwrap = (el) => {
     let p = parts(el);
     while (p.length === 1) [el, p] = [p[0], parts(p[0])];
@@ -251,7 +255,6 @@ function formContext(el) {
     };
   };
   const visibleIn = (sel) => Array.from(container.querySelectorAll(sel)).filter(isVisible);
-  const r = container.getBoundingClientRect();
   return {
     name: clip(
       container.getAttribute('aria-label') || idrefText(container, 'aria-labelledby') || safeText(container.querySelector('legend, h1, h2, h3')),
@@ -265,7 +268,7 @@ function formContext(el) {
       .map((m) => safeText(m, 200))
       .filter(Boolean)
       .slice(0, 10),
-    rect: [r.x, r.y, r.width, r.height],
+    rect: topRect(container),
   };
 }
 
@@ -292,7 +295,6 @@ function tableContext(el) {
     });
     return headers.length ? { cells: texts, headers } : { cells: texts };
   });
-  const r = table.getBoundingClientRect();
   return {
     caption: clip(
       table.getAttribute('aria-label') || idrefText(table, 'aria-labelledby') || safeText(table.querySelector('caption')),
@@ -302,7 +304,7 @@ function tableContext(el) {
     rowCount: rows.length,
     columnCount: Math.max(0, ...rows.map((row) => cellsOf(row).length)),
     target,
-    rect: [r.x, r.y, r.width, r.height],
+    rect: topRect(table),
   };
 }
 
@@ -328,10 +330,12 @@ function sensitiveRects(elements) {
   for (const el of elements) {
     const shadow = shadowRootOf(el);
     if (shadow) rects.push(...sensitiveRects(shadow.querySelectorAll('*')));
-    // Payment providers put card fields in cross-origin iframes we cannot inspect, so every iframe is masked.
-    if (el.tagName.toLowerCase() !== 'iframe' && !isSensitiveField(el)) continue;
-    const r = el.getBoundingClientRect();
-    if (r.width > 0 && r.height > 0) rects.push([r.x, r.y, r.width, r.height]);
+    // Payment providers put card fields in cross-origin frames we cannot inspect, so those are masked
+    // whole; a same-origin frame's own fields are in elements and masked one by one.
+    const frame = el.matches('iframe, frame');
+    if (frame ? frameDocument(el) : !isSensitiveField(el)) continue;
+    const r = topRect(el);
+    if (r[2] > 0 && r[3] > 0) rects.push(r);
   }
   return rects;
 }

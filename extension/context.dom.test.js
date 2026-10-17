@@ -27,7 +27,9 @@ globalThis.NodeFilter = window.NodeFilter;
 const ids = new WeakMap();
 globalThis.elementId = (el) => ids.get(el) || (ids.set(el, `e_${Math.random()}`), ids.get(el));
 
-const { describeElement, pageOutline, formContext, tableContext } = require('./context.js');
+const { elementId: _unused, ...frameHelpers } = require('./grounding.js');
+Object.assign(globalThis, frameHelpers); // content scripts share one scope
+const { describeElement, pageOutline, formContext, tableContext, sensitiveRects } = require('./context.js');
 
 document.getElementById('name').value = 'TYPED-NAME';
 document.getElementById('pw').value = 'TYPED-PASSWORD';
@@ -75,4 +77,29 @@ test('table data: cell texts, marked headers, sizes and the target cell, never f
   assert.deepStrictEqual([t.rowCount, t.columnCount, t.target], [3, 3, [1, 1]]);
   assert.ok(!JSON.stringify(t).includes('TYPED-MEMO'));
   assert.strictEqual(tableContext(document.querySelector('h1')), null);
+});
+
+test('same-origin frames are read and offset; cross-origin frames are masked whole', () => {
+  const frame = document.createElement('iframe');
+  document.body.append(frame);
+  frame.getBoundingClientRect = () => ({ x: 100, y: 50, width: 400, height: 300 });
+  const inner = frame.contentDocument;
+  frame.contentWindow.Element.prototype.checkVisibility = () => true; // each frame has its own prototypes
+  inner.body.innerHTML = '<h2>Gömülü form</h2><input id="otp" autocomplete="one-time-code"><button id="go">Gönder</button>';
+  inner.getElementById('otp').value = 'TYPED-OTP';
+  inner.getElementById('otp').getBoundingClientRect = () => ({ x: 10, y: 20, width: 80, height: 30 });
+  const other = document.createElement('iframe');
+  document.body.append(other);
+  Object.defineProperty(other, 'contentDocument', { get: () => null }); // what a cross-origin frame looks like
+  other.getBoundingClientRect = () => ({ x: 0, y: 400, width: 300, height: 100 });
+
+  assert.ok(allElements(document).includes(inner.getElementById('go')));
+  assert.deepStrictEqual(topRect(inner.getElementById('otp')), [110, 70, 80, 30]);
+  assert.deepStrictEqual(sensitiveRects(allElements(document)).sort(), [[0, 400, 300, 100], [110, 70, 80, 30]]);
+  const outline = JSON.stringify(pageOutline(document));
+  assert.ok(outline.includes('Gömülü form') && outline.includes('Gönder'));
+  assert.ok(!outline.includes('TYPED-OTP'));
+  assert.match(describeElement(inner.getElementById('go')).text, /Gönder/);
+  frame.remove();
+  other.remove();
 });

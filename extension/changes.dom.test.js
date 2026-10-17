@@ -18,7 +18,8 @@ globalThis.NodeFilter = window.NodeFilter;
 const ids = new WeakMap();
 let nextId = 1;
 globalThis.elementId = (el) => ids.get(el) || (ids.set(el, `e_${nextId++}`), ids.get(el));
-globalThis.MARKER_PREFIX = require('./grounding.js').MARKER_PREFIX;
+const { elementId: _unused, ...grounding } = require('./grounding.js');
+Object.assign(globalThis, grounding); // content scripts share one scope
 const context = require('./context.js');
 Object.assign(globalThis, context);
 const { createChangeTracker } = require('./changes.js');

@@ -1,9 +1,15 @@
 const test = require('node:test');
 const assert = require('node:assert');
+Object.assign(globalThis, require('./grounding.js')); // content scripts share one scope
 const { isSensitiveField, sensitiveRects, cropBox } = require('./context.js');
 
 function field(tagName, attrs = {}, labels = []) {
-  return { tagName, getAttribute: (n) => attrs[n] ?? null, labels: labels.map((t) => ({ textContent: t })) };
+  return {
+    tagName,
+    getAttribute: (n) => attrs[n] ?? null,
+    matches: (sel) => sel.split(',').map((s) => s.trim()).includes(tagName.toLowerCase()),
+    labels: labels.map((t) => ({ textContent: t })),
+  };
 }
 
 test('password, OTP and card fields are sensitive', () => {

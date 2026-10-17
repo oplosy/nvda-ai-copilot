@@ -5,7 +5,7 @@ chrome.runtime.sendMessage({ type: 'hello' }).catch(() => {}); // wakes the work
 const changeTracker = createChangeTracker(document);
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  const all = document.body ? document.body.querySelectorAll('*') : [];
+  const all = allElements(document);
   if (msg.type === 'snapshot') {
     sendResponse({ url: location.href, dpr: devicePixelRatio, elements: snapshot(all) });
   } else if (msg.type === 'mark') {
@@ -20,11 +20,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       sendResponse({ error: 'element is no longer in the page' });
       return;
     }
-    const r = el.getBoundingClientRect();
     sendResponse({
       page: { origin: location.origin, title: clip(document.title, 150) },
       element: describeElement(el),
-      rect: [r.x, r.y, r.width, r.height],
+      rect: topRect(el),
       viewport: [innerWidth, innerHeight],
       sensitiveRects: sensitiveRects(all),
     });

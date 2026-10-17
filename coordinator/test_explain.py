@@ -132,6 +132,10 @@ class CoordinatorExplainTest(unittest.TestCase):
 		self.assertNotIn("4111", json.dumps(seen["data"], ensure_ascii=False))
 		self.assertIn("never its value", llm.build_request({}, None, "form")["system"])
 
+	def test_every_spoken_answer_states_its_evidence(self):
+		for task in ("explain", "summarize", "form", "table", "changes", "find"):
+			self.assertIn("based on", llm.build_request({}, None, task)["system"], task)
+
 	def test_summarize_prompt_differs_from_explain(self):
 		s = llm.build_request({}, None, "summarize")
 		e = llm.build_request({}, None)

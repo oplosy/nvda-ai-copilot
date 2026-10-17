@@ -83,5 +83,6 @@ cd coordinator; .venv\Scripts\python -m unittest
 ```
 
 ```powershell
-node --test extension/grounding.test.js extension/context.test.js
+npm install
+node --test "extension/*.test.js"
 ```

@@ -4,3 +4,4 @@ __pycache__/
 coordinator/com.nvda_ai_copilot.coordinator.json
 .venv/
 nvda-addon/dist/
+node_modules/

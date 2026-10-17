@@ -89,4 +89,4 @@ function clearMarkers(elements, nonce) {
 }
 
 if (typeof module !== 'undefined')
-  module.exports = { snapshot, elementById, markElements, clearMarkers, MARKER_PREFIX, frameDocument, frameDocs, allElements, topRect };
+  module.exports = { elementId, snapshot, elementById, markElements, clearMarkers, MARKER_PREFIX, frameDocument, frameDocs, allElements, topRect };

@@ -44,6 +44,10 @@ function idrefText(el, attr) {
   return clip(ids.map((id) => safeText(el.ownerDocument.getElementById(id))).join(' '));
 }
 
+function nearbyText(sibling) {
+  return sibling ? safeText(sibling, 150) || clip(accessibleName(sibling), 150) : '';
+}
+
 function describeElement(el) {
   const attr = (name) => el.getAttribute(name);
   const href = attr('href');
@@ -72,8 +76,9 @@ function describeElement(el) {
     text: sensitive ? '' : safeText(el),
     images: Array.from(el.querySelectorAll('img, svg'), (i) => clip(i.getAttribute('alt') || i.getAttribute('aria-label') || i.querySelector?.('title')?.textContent || '', 80)).filter(Boolean).slice(0, IMAGE_LIMIT),
     nearby: {
-      before: safeText(el.previousElementSibling, 150),
-      after: safeText(el.nextElementSibling, 150),
+      // A field next to an icon button is the best clue to it: its name (placeholder, label), never its value.
+      before: nearbyText(el.previousElementSibling),
+      after: nearbyText(el.nextElementSibling),
       parent: safeText(el.parentElement),
     },
     states: {

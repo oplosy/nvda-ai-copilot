@@ -103,3 +103,11 @@ test('same-origin frames are read and offset; cross-origin frames are masked who
   frame.remove();
   other.remove();
 });
+
+test('an icon button is described by the name of the field next to it, never its value', () => {
+  document.body.insertAdjacentHTML('beforeend', '<div><input id="s" type="search" placeholder="Ürün ara"><button id="sb"><svg></svg></button></div>');
+  document.getElementById('s').value = 'TYPED-SEARCH';
+  const nearby = describeElement(document.getElementById('sb')).nearby;
+  assert.strictEqual(nearby.before, 'Ürün ara');
+  assert.ok(!JSON.stringify(nearby).includes('TYPED-SEARCH'));
+});

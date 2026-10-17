@@ -105,6 +105,8 @@ def _describe(reply):
 		return f"Copilot: kesin eşlenemedi, {len(reply.get('candidates') or [])} aday"
 	if status == "none":
 		return "Copilot: eşleşen öğe bulunamadı"
+	if status == "info":
+		return f"Copilot: {reply.get('text')}"
 	return f"Copilot hatası: {reply.get('message')}"
 
 
@@ -126,18 +128,59 @@ def _find(query):
 		_onMain(ui.message, _describe(reply))
 
 
-def _askQuery():
-	"""Main (wx) thread: ask what to find, then search in a worker."""
+def _askText(prompt, worker):
+	"""Main (wx) thread: ask for a line of text, then run worker(text) in a worker thread."""
 	gui.mainFrame.prePopup()
-	dlg = wx.TextEntryDialog(gui.mainFrame, "Sayfada ne arıyorsun?", "NVDA AI Copilot")
+	dlg = wx.TextEntryDialog(gui.mainFrame, prompt, "NVDA AI Copilot")
 	try:
 		ok = dlg.ShowModal() == wx.ID_OK
-		query = dlg.GetValue().strip()
+		text = dlg.GetValue().strip()
 	finally:
 		dlg.Destroy()
 		gui.mainFrame.postPopup()
-	if ok and query:
-		threading.Thread(target=_find, args=(query[:300],), daemon=True).start()
+	if ok and text:
+		threading.Thread(target=worker, args=(text[:300],), daemon=True).start()
+
+
+def _sections():
+	"""Worker thread: the model names the page's parts; the person picks one and focus moves there."""
+	_onMain(ui.message, "Copilot: bölümler çıkarılıyor")
+	reply = _call({"type": "sections"}, EXPLAIN_TIMEOUT_S)
+	if reply is None:
+		return
+	if reply.get("status") == "sections":
+		wx.CallAfter(_chooseSection, reply["sections"])
+	else:
+		_onMain(ui.message, _describe(reply))
+
+
+def _chooseSection(sections):
+	"""Main (wx) thread: list the AI's sections; the list itself is marked as AI output."""
+	gui.mainFrame.prePopup()
+	dlg = wx.SingleChoiceDialog(
+		gui.mainFrame,
+		"AI yorumu: sayfanın bölümleri. Seçtiğin bölüme odak taşınır.",
+		"NVDA AI Copilot",
+		[s["title"] for s in sections],
+	)
+	try:
+		ok = dlg.ShowModal() == wx.ID_OK
+		index = dlg.GetSelection()
+	finally:
+		dlg.Destroy()
+		gui.mainFrame.postPopup()
+	if ok and index >= 0:
+		threading.Thread(target=_focusSection, args=(sections[index]["elementId"],), daemon=True).start()
+
+
+def _focusSection(elementId):
+	reply = _call({"type": "focus", "elementId": elementId})
+	if reply is None:
+		return
+	if reply.get("status") != "focused":
+		_onMain(ui.message, _describe(reply))
+	elif not reply.get("focused"):
+		_onMain(ui.message, "Copilot: odak taşınamadı")
 
 
 def _webNavigator():
@@ -220,7 +263,29 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if api.getFocusObject().appModule.appName != "chrome":
 			ui.message("Copilot: odak Chrome'da değil")
 			return
-		wx.CallAfter(_askQuery)
+		wx.CallAfter(_askText, "Sayfada ne arıyorsun?", _find)
+
+	@script(description="NVDA AI Copilot: say what changed on the page since the last click or key press", gesture="kb:NVDA+alt+shift+c")
+	def script_changes(self, gesture):
+		if api.getFocusObject().appModule.appName != "chrome":
+			ui.message("Copilot: odak Chrome'da değil")
+			return
+		threading.Thread(target=_askModel, args=({"type": "changes"},), daemon=True).start()
+
+	@script(description="NVDA AI Copilot: list the page's parts found by AI and move to one", gesture="kb:NVDA+alt+shift+b")
+	def script_sections(self, gesture):
+		if api.getFocusObject().appModule.appName != "chrome":
+			ui.message("Copilot: odak Chrome'da değil")
+			return
+		threading.Thread(target=_sections, daemon=True).start()
+
+	@script(description="NVDA AI Copilot: ask a follow-up question about the last AI answer", gesture="kb:NVDA+alt+shift+q")
+	def script_followup(self, gesture):
+		wx.CallAfter(
+			_askText,
+			"Son AI cevabı hakkında ne sormak istiyorsun?",
+			lambda question: _askModel({"type": "followup", "query": question}),
+		)
 
 	@script(description="NVDA AI Copilot: locate navigator object in the page (debug)", gesture="kb:NVDA+alt+shift+l")
 	def script_locate(self, gesture):

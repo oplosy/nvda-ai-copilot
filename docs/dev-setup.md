@@ -16,6 +16,14 @@ In Chrome browse mode:
   form (`form`, `[role=form]` or `fieldset`, else the page): labels, required, filled (yes/no only),
   invalid with validity flags, error texts, buttons. Explains what to fill and how to fix errors.
   `validationMessage` is never sent because Chrome's text can quote what was typed.
+- **NVDA+Alt+Shift+C**: what changed. The extension records DOM changes since the last click or
+  key press in the page (added, text, attribute and removed content; never inside fields or
+  `contenteditable`) and the model says what they mean. No changes: answered without the model.
+- **NVDA+Alt+Shift+B**: AI section list. The extension splits the page into up to 40 visible blocks;
+  the model names 3-12 parts using only those IDs (JSON schema). A list dialog shows them and focus
+  moves to the chosen part; the coordinator only accepts focus for IDs from the last list.
+- **NVDA+Alt+Shift+Q**: follow-up question about the last AI answer (5 minutes), on the same page
+  data and screenshot. Follow-ups chain.
 - **NVDA+Alt+Shift+L**: grounding only (debug). Speaks the extension element ID (`e_N`).
 
 All text sent to the model goes through `safeText()` in `extension/context.js`, which skips form

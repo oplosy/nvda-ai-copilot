@@ -10,7 +10,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["grounding.js", "context.js", "content.js"],
+      "js": ["grounding.js", "context.js", "changes.js", "content.js"],
       "run_at": "document_idle"
     }
   ]

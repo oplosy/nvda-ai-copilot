@@ -1,6 +1,8 @@
-// Answers coordinator requests in the top frame. Uses helpers from grounding.js and context.js.
+// Answers coordinator requests in the top frame. Uses helpers from grounding.js, context.js and changes.js.
 
 chrome.runtime.sendMessage({ type: 'hello' }).catch(() => {}); // wakes the worker; no reply expected
+
+const changeTracker = createChangeTracker(document);
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const all = document.body ? document.body.querySelectorAll('*') : [];
@@ -44,6 +46,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       page: { origin: location.origin, title: clip(document.title, 150) },
       form,
       rect: form.rect,
+      viewport: [innerWidth, innerHeight],
+      sensitiveRects: sensitiveRects(all),
+    });
+  } else if (msg.type === 'changes') {
+    sendResponse({
+      page: { origin: location.origin, title: clip(document.title, 150) },
+      changes: { ...changeTracker.report(), alerts: pageAlerts(document) },
+      rect: [0, 0, innerWidth, innerHeight],
+      viewport: [innerWidth, innerHeight],
+      sensitiveRects: sensitiveRects(all),
+    });
+  } else if (msg.type === 'sections') {
+    sendResponse({
+      page: { origin: location.origin, title: clip(document.title, 150) },
+      sections: pageSections(document),
+      rect: [0, 0, innerWidth, innerHeight],
       viewport: [innerWidth, innerHeight],
       sensitiveRects: sensitiveRects(all),
     });

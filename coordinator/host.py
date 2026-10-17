@@ -13,6 +13,7 @@ import secrets
 import socketserver
 import sys
 import threading
+import time
 from pathlib import Path
 
 import llm
@@ -27,6 +28,8 @@ EXTENSION_TIMEOUT_S = 3
 CLIENT_TIMEOUT_S = 5
 MAX_REQUEST_BYTES = 64 * 1024
 MAX_QUERY_CHARS = 300
+# A follow-up is about the answer the person just heard; after this the page has likely moved on.
+FOLLOWUP_TTL_S = 300
 
 log = logging.getLogger("coordinator")
 
@@ -70,13 +73,19 @@ class Extension:
 
 
 class Coordinator:
-	def __init__(self, ask_extension, explain=None, choose=None):
+	def __init__(self, ask_extension, explain=None, choose=None, sections=None, followup=None):
 		self.ask = ask_extension
 		# explain(data, screenshot, task) -> spoken text
 		self.explain_fn = explain or (lambda ctx, shot, task: llm.explain(llm.default_client(), ctx, shot, task))
 		# choose(data, screenshot, user_request, choices) -> (element ID in choices or None, spoken reason)
 		self.choose_fn = choose or (lambda ctx, shot, q, ids: llm.choose(llm.default_client(), ctx, shot, q, ids))
+		# sections(data, screenshot, choices) -> [(element ID in choices, title)]
+		self.sections_fn = sections or (lambda ctx, shot, ids: llm.sections(llm.default_client(), ctx, shot, ids))
+		# followup(data, screenshot, task, turns, question) -> spoken text
+		self.followup_fn = followup or (lambda *a: llm.followup(llm.default_client(), *a))
 		self.pending = None  # (nonce, snapshot) of the marking round the add-on is polling
+		self.last = None  # model input and turns of the last AI answer, for follow-up questions
+		self.section_ids = set()  # IDs of the last section list: the only elements "focus" may move to
 
 	def handle(self, req):
 		kind = req.get("type")
@@ -90,9 +99,22 @@ class Coordinator:
 			if kind == "form" and isinstance(req.get("elementId"), str):
 				ctx = self.ask({"type": "form", "elementId": req["elementId"]})
 				return {"status": "explained", "text": self._ask_model(ctx, "form", "form")}
+			if kind == "changes":
+				ctx = self.ask({"type": "changes"})
+				if not ctx["changes"]["items"]:
+					return {"status": "info", "text": "son tıklama veya tuş basımından beri sayfada görünür bir değişiklik yok"}
+				return {"status": "explained", "text": self._ask_model(ctx, "changes", "changes")}
+			if kind == "sections":
+				return self.sections()
+			if kind == "focus" and req.get("elementId") in self.section_ids:
+				focused = self.ask({"type": "focus", "elementId": req["elementId"]}).get("focused")
+				return {"status": "focused", "elementId": req["elementId"], "focused": bool(focused)}
 			query = req.get("query")
-			if kind == "find" and isinstance(query, str) and 0 < len(query.strip()) <= MAX_QUERY_CHARS:
-				return self.find(query.strip())
+			if isinstance(query, str) and 0 < len(query.strip()) <= MAX_QUERY_CHARS:
+				if kind == "find":
+					return self.find(query.strip())
+				if kind == "followup":
+					return self.followup(query.strip())
 			return {"status": "error", "message": "bad request"}
 		except (ExtensionError, llm.LLMError) as e:
 			return {"status": "error", "message": str(e)}
@@ -120,10 +142,40 @@ class Coordinator:
 		log.info("find: %s choices, screenshot=%s chars", len(choices), len(shot or ""))
 		element_id, reason = self.choose_fn(data, shot, query, choices)
 		log.info("find -> %s", element_id)
+		self._remember("summarize", data, shot, query, reason)
 		if element_id is None:
 			return {"status": "none", "text": reason}
 		focused = self.ask({"type": "focus", "elementId": element_id}).get("focused")
 		return {"status": "found", "elementId": element_id, "focused": bool(focused), "text": reason}
+
+	def sections(self):
+		ctx = self.ask({"type": "sections"})
+		sections = ctx["sections"]
+		# As with find: only IDs the extension issued, and "focus" is the only action on them.
+		choices = sorted({item["id"] for part in ("headings", "landmarks", "blocks") for item in sections[part]})
+		if not choices:
+			return {"status": "info", "text": "sayfada bölümlere ayrılacak içerik bulunamadı"}
+		data = redact({"page": ctx["page"], "sections": sections})
+		shot = ctx.get("screenshot")
+		picked = self.sections_fn(data, shot, choices)
+		log.info("sections: %s choices -> %s", len(choices), len(picked))
+		if not picked:
+			return {"status": "info", "text": "sayfa bölümlere ayrılamadı"}
+		self.section_ids = {element_id for element_id, _ in picked}
+		self._remember("summarize", data, shot, None, "Sayfanın bölümleri: " + "; ".join(t for _, t in picked))
+		return {"status": "sections", "sections": [{"elementId": i, "title": t} for i, t in picked]}
+
+	def followup(self, question):
+		last = self.last
+		if not last or time.monotonic() - last["at"] > FOLLOWUP_TTL_S:
+			return {"status": "info", "text": "takip sorusu son AI cevabına sorulur; önce bir AI komutu kullan"}
+		text = self.followup_fn(last["data"], last["shot"], last["task"], list(last["turns"]), question)
+		log.info("followup %s -> %s chars", len(last["turns"]), len(text))
+		last["turns"].append((question, text))
+		return {"status": "explained", "text": text}
+
+	def _remember(self, task, data, shot, request, answer):
+		self.last = {"task": task, "data": data, "shot": shot, "turns": [(request, answer)], "at": time.monotonic()}
 
 	def _ask_model(self, ctx, key, task):
 		if ctx.get("screenshotError"):
@@ -134,6 +186,7 @@ class Coordinator:
 		log.info("%s: screenshot=%s chars, data=%s chars", task, len(shot or ""), len(json.dumps(data)))
 		text = self.explain_fn(data, shot, task)
 		log.info("%s -> %s chars", task, len(text))
+		self._remember(task, data, shot, None, text)
 		return text
 
 	def locate(self, nav, nonce=None):

@@ -13,7 +13,9 @@ You need Windows 10 or 11 (64-bit), NVDA 2024.1 or newer, Google Chrome and an A
    remove it.
 
 Shortcuts in Chrome browse mode: NVDA+Alt+Shift+E (explain element), P (summarize page),
-F (find), R (form help). AI output always starts with "AI yorumu:".
+F (find), R (form help), C (what changed after my last click or key press), B (list of page parts;
+pick one to move there), Q (follow-up question about the last answer). AI output always starts with
+"AI yorumu:". Shortcuts can be changed in NVDA's Input gestures dialog.
 
 **Uninstall:** run `uninstall.bat` in `%LOCALAPPDATA%\Programs\nvda-ai-copilot`, remove the add-on
 in NVDA's Add-on Store and the extension in Chrome. Logs stay in `%LOCALAPPDATA%\nvda-ai-copilot`.

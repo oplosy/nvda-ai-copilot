@@ -140,22 +140,79 @@ function pageOutline(doc) {
   });
   const main = doc.querySelector('main, [role=main]') || doc.body;
   return {
-    headings: visible('h1, h2, h3, h4, h5, h6, [role=heading]').map((el) => ({
-      id: elementId(el),
-      level: Number(el.getAttribute('aria-level') || el.tagName.slice(1)) || null,
-      text: safeText(el, 120),
-    })),
-    landmarks: visible(LANDMARKS).map((el) => ({
-      id: elementId(el),
-      role: el.getAttribute('role') || el.tagName.toLowerCase(),
-      name: clip(el.getAttribute('aria-label') || idrefText(el, 'aria-labelledby'), 80),
-    })),
-    alerts: visible('[role=alert], [role=status], [aria-live]:not([aria-live=off])')
-      .map((el) => safeText(el, 200))
-      .filter(Boolean),
+    headings: pageHeadings(doc),
+    landmarks: pageLandmarks(doc),
+    alerts: pageAlerts(doc),
     controls,
     controlCount: found.length,
     mainText: safeText(main, 1500),
+  };
+}
+
+const HEADINGS = 'h1, h2, h3, h4, h5, h6, [role=heading]';
+const visibleMatches = (root, sel) => Array.from(root.querySelectorAll(sel)).filter(isVisible);
+
+function pageHeadings(doc) {
+  return visibleMatches(doc, HEADINGS).map((el) => ({
+    id: elementId(el),
+    level: Number(el.getAttribute('aria-level') || el.tagName.slice(1)) || null,
+    text: safeText(el, 120),
+  }));
+}
+
+function pageLandmarks(doc) {
+  return visibleMatches(doc, LANDMARKS).map((el) => ({
+    id: elementId(el),
+    role: el.getAttribute('role') || el.tagName.toLowerCase(),
+    name: clip(el.getAttribute('aria-label') || idrefText(el, 'aria-labelledby'), 80),
+  }));
+}
+
+function pageAlerts(doc) {
+  return visibleMatches(doc, '[role=alert], [role=status], [aria-live]:not([aria-live=off])')
+    .map((el) => safeText(el, 200))
+    .filter(Boolean);
+}
+
+const BLOCK_LIMIT = 40;
+const BLOCK_SPLIT_MIN_CHARS = 400; // a block with less text is small enough to name as one part
+
+// Visible parts of the page in document order: start with the body and keep splitting the block
+// with the most text into its children, skipping single-child wrappers, until BLOCK_LIMIT.
+function pageBlocks(doc, limit = BLOCK_LIMIT) {
+  const sizes = new Map();
+  // Length only, to rank blocks; the content sent is read with safeText.
+  const size = (el) => sizes.get(el) ?? sizes.set(el, (el.textContent || '').length).get(el);
+  const parts = (el) => Array.from(el.children).filter((c) => !c.matches(NO_TEXT) && size(c) > 20 && isVisible(c));
+  const unwrap = (el) => {
+    let p = parts(el);
+    while (p.length === 1) [el, p] = [p[0], parts(p[0])];
+    return { el, parts: p };
+  };
+  const blocks = [unwrap(doc.body)];
+  for (;;) {
+    let best = -1;
+    blocks.forEach((b, i) => {
+      if (b.parts.length > 1 && size(b.el) >= BLOCK_SPLIT_MIN_CHARS && (best < 0 || size(b.el) > size(blocks[best].el))) best = i;
+    });
+    if (best < 0 || blocks.length - 1 + blocks[best].parts.length > limit) break;
+    blocks.splice(best, 1, ...blocks[best].parts.map(unwrap));
+  }
+  return blocks.map(({ el }) => el);
+}
+
+// Value-free page structure for the AI section list.
+function pageSections(doc) {
+  return {
+    headings: pageHeadings(doc),
+    landmarks: pageLandmarks(doc),
+    blocks: pageBlocks(doc).map((el) => ({
+      id: elementId(el),
+      tag: el.tagName.toLowerCase(),
+      role: el.getAttribute('role'),
+      heading: safeText(el.matches(HEADINGS) ? el : el.querySelector(HEADINGS), 100),
+      text: safeText(el, 200),
+    })),
   };
 }
 
@@ -255,4 +312,5 @@ function cropBox(rect, viewport, scale, margin = 120) {
   return [left, top, right - left, bottom - top].map((v) => Math.round(v * scale));
 }
 
-if (typeof module !== 'undefined') module.exports = { isSensitiveField, describeElement, pageOutline, formContext, focusElement, sensitiveRects, cropBox };
+if (typeof module !== 'undefined')
+  module.exports = { NO_TEXT, clip, safeText, accessibleName, isVisible, isSensitiveField, describeElement, pageOutline, pageAlerts, pageSections, formContext, focusElement, sensitiveRects, cropBox };

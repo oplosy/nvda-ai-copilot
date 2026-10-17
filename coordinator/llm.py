@@ -84,7 +84,7 @@ def build_request(context, screenshot_b64, task="explain", user_request=None, ch
 	content = []
 	if screenshot_b64:
 		content.append(
-			{"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": screenshot_b64}}
+			{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": screenshot_b64}}
 		)
 	page_data = json.dumps(context, ensure_ascii=False, sort_keys=True)
 	if user_request is not None:

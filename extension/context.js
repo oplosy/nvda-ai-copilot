@@ -2,6 +2,7 @@
 // geometry for a masked screenshot crop. Field values are never read.
 
 const TEXT_LIMIT = 300;
+const IMAGE_LIMIT = 20;
 const SENSITIVE_AUTOCOMPLETE = /\b(cc-|one-time-code|current-password|new-password)/i;
 const SENSITIVE_HINT =
   /(passw|parola|şifre|sifre|otp|one.?time|tek kullanımlık|doğrulama kodu|dogrulama kodu|verification code|security code|güvenlik kodu|cvv|cvc|card.?num|kart.?n|iban|\bpin\b)/i;
@@ -69,7 +70,7 @@ function describeElement(el) {
     link,
     labels: el.labels ? Array.from(el.labels, (l) => safeText(l)) : [],
     text: sensitive ? '' : safeText(el),
-    images: Array.from(el.querySelectorAll('img, svg'), (i) => clip(i.getAttribute('alt') || i.getAttribute('aria-label') || i.querySelector?.('title')?.textContent || '', 80)).filter(Boolean),
+    images: Array.from(el.querySelectorAll('img, svg'), (i) => clip(i.getAttribute('alt') || i.getAttribute('aria-label') || i.querySelector?.('title')?.textContent || '', 80)).filter(Boolean).slice(0, IMAGE_LIMIT),
     nearby: {
       before: safeText(el.previousElementSibling, 150),
       after: safeText(el.nextElementSibling, 150),
@@ -121,7 +122,10 @@ function pageOutline(doc) {
     return r.bottom > 0 && r.right > 0 && r.top < vh && r.left < vw;
   };
   const visible = (sel) => Array.from(doc.querySelectorAll(sel)).filter(isVisible);
-  const controls = visible(CONTROLS).map((el) => {
+  const found = visible(CONTROLS).map((el) => ({ el, inViewport: inView(el) }));
+  found.sort((a, b) => b.inViewport - a.inViewport); // stable: document order within each group
+  // Names walk text nodes, so only the controls that are sent get one.
+  const controls = found.slice(0, OUTLINE_CONTROL_LIMIT).map(({ el, inViewport }) => {
     const name = accessibleName(el);
     return {
       id: elementId(el),
@@ -130,11 +134,10 @@ function pageOutline(doc) {
       type: el.getAttribute('type'),
       name,
       unlabeled: !name,
-      inViewport: inView(el),
+      inViewport,
       sensitive: isSensitiveField(el),
     };
   });
-  controls.sort((a, b) => b.inViewport - a.inViewport); // stable: document order within each group
   const main = doc.querySelector('main, [role=main]') || doc.body;
   return {
     headings: visible('h1, h2, h3, h4, h5, h6, [role=heading]').map((el) => ({
@@ -150,8 +153,8 @@ function pageOutline(doc) {
     alerts: visible('[role=alert], [role=status], [aria-live]:not([aria-live=off])')
       .map((el) => safeText(el, 200))
       .filter(Boolean),
-    controls: controls.slice(0, OUTLINE_CONTROL_LIMIT),
-    controlCount: controls.length,
+    controls,
+    controlCount: found.length,
     mainText: safeText(main, 1500),
   };
 }

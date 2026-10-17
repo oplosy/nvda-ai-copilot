@@ -27,7 +27,8 @@ async function maskedCrop(windowId, ctx) {
   g.drawImage(bitmap, bx, by, bw, bh, 0, 0, bw, bh);
   g.fillStyle = '#000';
   for (const [x, y, w, h] of ctx.sensitiveRects) g.fillRect(x * scale - bx, y * scale - by, w * scale, h * scale);
-  const blob = await canvas.convertToBlob({ type: 'image/png' });
+  // JPEG keeps photo-heavy viewports far below the API image size limit and uploads faster than PNG.
+  const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.8 });
   return toBase64(await blob.arrayBuffer());
 }
 

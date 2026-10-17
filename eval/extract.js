@@ -30,10 +30,11 @@ const out = cases.map((c) => {
   const target = c.target ? doc.querySelector(c.target) : null;
   if (c.target && !target) throw new Error(`${c.id}: no element ${c.target}`);
   const replies = { focus: { focused: true } };
-  if (c.task === 'explain') replies.context = { page, element: describeElement(target) };
+  if (c.task === 'explain' || c.task === 'report') replies.context = { page, element: describeElement(target), url: 'https://shop.example/urun' };
   if (c.task === 'form') replies.form = { page, form: formContext(target) };
   if (c.task === 'table') replies.table = { page, table: tableContext(target) };
-  if (c.task === 'summarize' || c.task === 'find') replies.outline = { page, outline: pageOutline(doc) };
+  if (['summarize', 'find', 'guide'].includes(c.task)) replies.outline = { page, outline: pageOutline(doc) };
+  if (c.task === 'guide') replies.changes = { page, changes: { sinceSeconds: 0, items: [] } };
   if (c.task === 'sections') replies.sections = { page, sections: pageSections(doc) };
   const expected = c.expect.element && doc.querySelector(c.expect.element);
   if (c.expect.element && !expected) throw new Error(`${c.id}: no element ${c.expect.element}`);

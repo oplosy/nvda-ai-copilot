@@ -69,6 +69,20 @@
     "expect": { "allOf": [["sipariş"], ["kargo"]] }
   },
   {
+    "id": "report-icon-button",
+    "file": "shop.html",
+    "task": "report",
+    "target": "#search-btn",
+    "expect": { "allOf": [["4.1.2", "1.1.1", "2.4.4"], ["aria-label", "<button"]] }
+  },
+  {
+    "id": "guide-first-step-search",
+    "file": "shop.html",
+    "task": "guide",
+    "query": "kablosuz kulaklık aramak istiyorum",
+    "expect": { "element": "#q" }
+  },
+  {
     "id": "sections-without-headings",
     "file": "listing.html",
     "task": "sections",

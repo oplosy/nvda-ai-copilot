@@ -31,6 +31,8 @@ REQUESTS = {
 	"summarize": lambda c: {"type": "summarize"},
 	"find": lambda c: {"type": "find", "query": c["query"]},
 	"sections": lambda c: {"type": "sections"},
+	"report": lambda c: {"type": "report", "elementId": c["targetId"]},
+	"guide": lambda c: {"type": "guide", "query": c["query"]},
 }
 
 
@@ -39,8 +41,8 @@ def check(case, reply):
 	if reply.get("status") in ("error", "info"):
 		return False, f"{reply.get('code')}: {reply.get('message') or reply.get('text')}"
 	expect = case["expect"]
-	if case["task"] == "find":
-		return reply.get("elementId") == case["expectId"], f"picked {reply.get('elementId')}, expected {case['expectId']}"
+	if case["task"] in ("find", "guide"):
+		return reply.get("elementId") == case["expectId"], f"picked {reply.get('elementId')}, expected {case['expectId']}: {reply.get('text')}"
 	if case["task"] == "sections":
 		titles = [s["title"] for s in reply.get("sections", [])]
 		return len(titles) >= expect["minSections"], "; ".join(titles)
@@ -59,6 +61,7 @@ def dry_run_coordinator(ask):
 		explain=lambda data, shot, task: f"dry run: {len(json.dumps(data))} chars",
 		choose=lambda data, shot, query, choices: (choices[0], f"dry run: {len(choices)} choices"),
 		sections=lambda data, shot, choices: [(i, f"part {n}") for n, i in enumerate(choices[:3])],
+		guide=lambda data, shot, goal, steps, choices: (choices[0], f"dry run: {len(choices)} choices", False),
 	)
 
 

@@ -26,6 +26,20 @@ In Chrome browse mode:
   moves to the chosen part; the coordinator only accepts focus for IDs from the last list.
 - **NVDA+Alt+Shift+Q**: follow-up question about the last AI answer (5 minutes), on the same page
   data and screenshot. Follow-ups chain.
+- **NVDA+Alt+Shift+D**: chart help. The SVG around the navigator object: texts and marks with
+  [x, y, width, height] from the chart's corner, mark labels and fills; the model reads values from
+  the axes.
+- **NVDA+Alt+Shift+G**: guided task. Takes a goal; each step (**NVDA+Alt+Shift+N** for the next)
+  the model gets the outline, what the person's last click or key press changed and its earlier
+  steps, and names one step and one extension element ID; focus moves there and the person acts.
+  Ends when done, after 15 idle minutes or 30 steps.
+- **NVDA+Alt+Shift+S**: report to the site. An issue report for the navigator object (what is
+  missing, WCAG 2.2 criteria, an HTML fix, page address without query) goes to the clipboard, not
+  to speech.
+- **NVDA+Alt+Shift+K**: keep the last element explanation for this site (`labels.json` in the data
+  folder), or delete it if it was a saved one. Explain then speaks it as a saved AI comment without
+  a model call. Elements are recognized by id, names, text, link, images and neighboring field
+  names.
 - **NVDA+Alt+Shift+L**: grounding only (debug). Speaks the extension element ID (`e_N`).
 
 Settings travel with every request from the add-on (NVDA settings → NVDA AI Copilot): send
@@ -34,6 +48,10 @@ before anything reaches the model, follow-ups included) and NVDA's language, whi
 answer in. Text answers stream: the coordinator sends finished sentences as `partial` lines and
 the add-on speaks them at once. Element explanations are cached for 30 minutes per element state.
 The coordinator log has extension, first-sentence and total times for every request.
+
+AI model: Claude by default, or an OpenAI-compatible server on this computer (`LocalClient` in
+`coordinator/llm.py`; images as data URLs, JSON schema output, streamed answers). Only localhost
+addresses are accepted and a broken local setup fails instead of falling back to the cloud.
 
 Same-origin iframes are read like the page; cross-origin frames are masked whole in screenshots.
 What-changed watches the top document only.

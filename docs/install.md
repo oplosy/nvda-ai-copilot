@@ -16,12 +16,20 @@ Anthropic API key.
 
 Shortcuts in Chrome browse mode: NVDA+Alt+Shift+E (explain element), P (summarize page),
 F (find), R (form help), T (table help), C (what changed after my last click or key press),
-B (list of page parts; pick one to move there), Q (follow-up question about the last answer). AI
+B (list of page parts; pick one to move there), Q (follow-up question about the last answer),
+D (chart help), G and N (guided task: start, next step), S (accessibility report for the site, on
+the clipboard), K (keep the last explanation for this site). AI
 output always starts with "AI comment:" ("AI yorumu:" in Turkish) and is in NVDA's language.
 Shortcuts can be changed in NVDA's Input gestures dialog, category NVDA AI Copilot.
 
 **Privacy settings** (same NVDA settings page): turn off *Send screenshots to the AI* and no
 screenshot is taken; list sites (for example your bank) where Copilot sends nothing.
+
+**Local model** (optional, nothing leaves the computer): install an OpenAI-compatible server such as
+[Ollama](https://ollama.com/), pull a model that can read images, then in the same settings page
+choose *Local model server on this computer* and enter its address (Ollama:
+`http://127.0.0.1:11434/v1`) and the model name. Answers are usually slower and less accurate than
+Claude's; no API key is needed.
 
 **Uninstall:** run `uninstall.bat` in `%LOCALAPPDATA%\Programs\nvda-ai-copilot`, remove the add-on
 in NVDA's Add-on Store and the extension in Chrome. Logs stay in `%LOCALAPPDATA%\nvda-ai-copilot`.

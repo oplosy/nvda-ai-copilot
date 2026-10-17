@@ -22,14 +22,19 @@
 <li>NVDA+Alt+Shift+C: what changed on the page since your last click or key press.</li>
 <li>NVDA+Alt+Shift+B: the parts of the page found by AI; choose one and focus moves there.</li>
 <li>NVDA+Alt+Shift+Q: ask a follow-up question about the last answer (for five minutes).</li>
+<li>NVDA+Alt+Shift+D: chart help: what an SVG chart shows, values read from its shapes.</li>
+<li>NVDA+Alt+Shift+G: guided task: say what you want to do; the AI tells you one step and moves focus there. You do the step, then press NVDA+Alt+Shift+N for the next one.</li>
+<li>NVDA+Alt+Shift+S: an AI-written accessibility report about the element, on the clipboard, to send to the site.</li>
+<li>NVDA+Alt+Shift+K: keep the last explanation for this site; next time the explain command speaks it at once. Press again after hearing a saved comment to delete it.</li>
 </ul>
-<p>The AI can only move focus. It never clicks, types or submits anything.</p>
+<p>The AI can only move focus. It never clicks, types or submits anything. Every answer ends with what it is based on.</p>
 
 <h2>Settings and privacy</h2>
 <ul>
 <li>Anthropic API key: stored encrypted for your Windows account.</li>
 <li>Send screenshots to the AI: when off, no screenshot is taken at all.</li>
 <li>Sites where Copilot is off: nothing from these sites (and their subdomains) is sent.</li>
+<li>AI model: Claude, or a local model server on this computer (for example Ollama with a model that can read images). With a local model nothing leaves the computer.</li>
 </ul>
 <p>Field values are never read. Password, one-time code and card fields and embedded frames such as payment forms are blacked out in screenshots. Logs never contain AI answers or your questions. Answers are in NVDA's language.</p>
 </body>

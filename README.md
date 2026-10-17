@@ -24,11 +24,18 @@ In Chrome or Edge browse mode:
 | NVDA+Alt+Shift+C | What changed | What changed on the page since your last click or key press |
 | NVDA+Alt+Shift+B | Sections | The page's parts named by AI; pick one and focus moves there |
 | NVDA+Alt+Shift+Q | Follow-up | Ask a question about the last answer |
+| NVDA+Alt+Shift+D | Chart help | What an SVG chart shows, values read from its geometry |
+| NVDA+Alt+Shift+G / N | Guided task | Say your goal; AI gives one step at a time and moves focus, you act |
+| NVDA+Alt+Shift+S | Report to the site | An AI-written accessibility issue report (WCAG, suggested fix) on the clipboard |
+| NVDA+Alt+Shift+K | Keep | Save the last explanation for this site; next time it is spoken at once |
+
+Every answer ends with what it is based on (a nearby label, a link, an icon), so you can judge it.
 
 You can change the shortcuts in NVDA's Input gestures dialog.
 
 The AI may only point to elements the extension found on the page, and moving focus is the only
-thing it can do. It never clicks, types or submits.
+thing it can do. It never clicks, types or submits, also in a guided task: there you do every step
+and it warns before steps that pay, order, submit, send or delete.
 
 ## Privacy
 
@@ -37,6 +44,9 @@ thing it can do. It never clicks, types or submits.
   pixels.
 - In NVDA settings you can turn screenshots off (then none is taken) and list sites where Copilot
   sends nothing at all.
+- Or use a local model instead of Claude: any OpenAI-compatible server on this computer (Ollama,
+  LM Studio, llama.cpp) with a model that reads images. Only localhost addresses are accepted, and
+  a broken local setup is an error, never a silent switch to the cloud.
 - Card numbers that appear in page text are masked before anything leaves your computer.
 - Links are sent without their query string and fragment, which can carry tokens.
 - Page content is passed to the model as untrusted data, so text on the page cannot give it orders.

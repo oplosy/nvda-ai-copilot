@@ -24,6 +24,8 @@ from logHandler import log
 from NVDAObjects.IAccessible import IAccessible
 from scriptHandler import script
 
+from . import bundle
+from . import install_host  # copied from coordinator/install_host.py by build.py
 from . import secret  # copied from coordinator/secret.py by build.py
 
 addonHandler.initTranslation()
@@ -453,6 +455,19 @@ class CopilotSettingsPanel(settingsDialogs.SettingsPanel):
 			gui.messageBox(_("The API key could not be saved; see the NVDA log."), "NVDA AI Copilot", wx.OK | wx.ICON_ERROR)
 
 
+def _installCoordinator(bundleDir, version):
+	"""Worker thread: copying the coordinator (~60 MB) the first time must not hold up NVDA's start."""
+	try:
+		appDir = bundle.ensure_installed(bundleDir, version, install_host.register, install_host.registered_manifest)
+	except (OSError, ValueError) as e:
+		log.error(f"nvdaAiCopilot: coordinator install failed: {e}")
+		return
+	if appDir:
+		log.info(f"nvdaAiCopilot: coordinator registered at {appDir}")
+	else:
+		log.info("nvdaAiCopilot: add-on carries no coordinator (dev build); using the registered one")
+
+
 class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	# Translators: category of this add-on's commands in the Input gestures dialog.
 	scriptCategory = _("NVDA AI Copilot")
@@ -460,6 +475,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self):
 		super().__init__()
 		settingsDialogs.NVDASettingsDialog.categoryClasses.append(CopilotSettingsPanel)
+		addon = addonHandler.getCodeAddon()
+		threading.Thread(
+			target=_installCoordinator, args=(os.path.join(addon.path, "coordinator"), addon.version), daemon=True
+		).start()
 
 	def terminate(self):
 		settingsDialogs.NVDASettingsDialog.categoryClasses.remove(CopilotSettingsPanel)

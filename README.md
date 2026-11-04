@@ -73,7 +73,9 @@ NVDA add-on  ──localhost──▶  coordinator (Python)  ──native messag
 ## Install
 
 Needs Windows 10 or 11 (64-bit), NVDA 2024.1 or newer, Google Chrome or Microsoft Edge and an
-[Anthropic API key](https://console.anthropic.com/). See [docs/install.md](docs/install.md).
+[Anthropic API key](https://console.anthropic.com/) (or a local model). Install the `.nvda-addon`
+from the [latest release](https://github.com/oplosy/nvda-ai-copilot/releases/latest), which carries
+the coordinator, and the browser extension. See [docs/install.md](docs/install.md).
 
 ## Development
 

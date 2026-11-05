@@ -7,3 +7,4 @@ nvda-addon/dist/
 node_modules/
 coordinator/build/
 coordinator/dist/
+/dist/

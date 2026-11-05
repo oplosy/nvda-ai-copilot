@@ -8,7 +8,7 @@ It does not fix the site and it does not change how NVDA works. AI output only c
 for it, and it always starts with **"AI comment:"** (Turkish: **"AI yorumu:"**) so you can tell it
 apart from what the page itself says. Answers are in NVDA's language.
 
-> Status: 0.2.0, early.
+> Status: 0.3.0, early.
 
 ## What it can do
 
@@ -73,7 +73,9 @@ NVDA add-on  ──localhost──▶  coordinator (Python)  ──native messag
 ## Install
 
 Needs Windows 10 or 11 (64-bit), NVDA 2024.1 or newer, Google Chrome or Microsoft Edge and an
-[Anthropic API key](https://console.anthropic.com/). See [docs/install.md](docs/install.md).
+[Anthropic API key](https://console.anthropic.com/) (or a local model). Install the `.nvda-addon`
+from the [latest release](https://github.com/oplosy/nvda-ai-copilot/releases/latest), which carries
+the coordinator, and the browser extension. See [docs/install.md](docs/install.md).
 
 ## Development
 

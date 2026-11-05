@@ -1,0 +1,54 @@
+name: Release
+
+# Push a tag like v0.3.0 (matching nvda-addon/manifest.ini and extension/manifest.json) to build the
+# NVDA add-on with the coordinator inside and the store zip of the extension, and attach both to a
+# GitHub release. Submitting to the Chrome Web Store, Edge Add-ons and the NVDA Add-on Store stays manual.
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          # build_dist.py ships python.org's embedded 3.12.10; the venv's binary wheels must match it.
+          python-version: '3.12.10'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: The tag matches the add-on and extension versions
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          addon="v$(sed -n 's/^version = //p' nvda-addon/manifest.ini | tr -d '\r')"
+          ext="v$(node -p "require('./extension/manifest.json').version")"
+          test "$addon" = "$TAG" && test "$ext" = "$TAG"
+      - run: python -m venv coordinator/.venv
+      - run: coordinator/.venv/Scripts/python -m pip install --quiet -r coordinator/requirements.txt
+      - run: cd coordinator && .venv/Scripts/python -m unittest
+      - run: coordinator/.venv/Scripts/python -m unittest discover -s nvda-addon -p "test_*.py"
+      - run: npm ci
+      - run: node --test "extension/*.test.js"
+      - run: cd coordinator && .venv/Scripts/python build_dist.py
+      - run: coordinator/.venv/Scripts/python nvda-addon/build.py
+      - run: coordinator/.venv/Scripts/python scripts/build_extension.py
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          gh release create "$TAG" --verify-tag --generate-notes \
+            "nvda-addon/dist/nvdaAiCopilot-$version.nvda-addon" \
+            "dist/nvda-ai-copilot-extension-$version.zip"

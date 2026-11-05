@@ -28,6 +28,7 @@ In Chrome or Edge browse mode:
 | NVDA+Alt+Shift+G / N | Guided task | Say your goal; AI gives one step at a time and moves focus, you act |
 | NVDA+Alt+Shift+S | Report to the site | An AI-written accessibility issue report (WCAG, suggested fix) on the clipboard |
 | NVDA+Alt+Shift+K | Keep | Save the last explanation for this site; next time it is spoken at once |
+| NVDA+Alt+Shift+U | Usage | This month's Claude requests and their estimated cost in US dollars |
 
 Every answer ends with what it is based on (a nearby label, a link, an icon), so you can judge it.
 
@@ -45,7 +46,9 @@ and it warns before steps that pay, order, submit, send or delete.
 - In NVDA settings you can turn screenshots off (then none is taken) and list sites where Copilot
   sends nothing at all.
 - Choose the Claude model by cost: Haiku 5.5 (fastest, about 40 times cheaper), Sonnet 5.5 or
-  Opus 5.5 (most capable).
+  Opus 5.5 (most capable). NVDA+Alt+Shift+U says what this month cost so far (an estimate from
+  list prices), and you can set a monthly limit in US dollars: once it is reached, Copilot stops
+  calling Claude until the next month or until you raise it.
 - Or use a local model instead of Claude: any OpenAI-compatible server on this computer (Ollama,
   LM Studio, llama.cpp) with a model that reads images. Only localhost addresses are accepted, and
   a broken local setup is an error, never a silent switch to the cloud.

@@ -246,3 +246,21 @@ msgstr "Son AI cevabı hakkında ne sormak istiyorsun?"
 
 msgid "the parts of the page. Focus moves to the part you choose."
 msgstr "sayfanın bölümleri. Seçtiğin bölüme odak taşınır."
+
+msgid "This month's spending limit for Claude is reached. You can raise it in NVDA settings, NVDA AI Copilot category"
+msgstr "Bu ayın Claude harcama limitine ulaşıldı. Limiti NVDA ayarlarında, NVDA AI Copilot kategorisinde yükseltebilirsiniz"
+
+msgid "This month: {requests} Claude requests, about {cost} US dollars"
+msgstr "Bu ay: {requests} Claude isteği, yaklaşık {cost} ABD doları"
+
+msgid "Limit: {limit} US dollars"
+msgstr "Limit: {limit} ABD doları"
+
+msgid "Monthly limit for Claude in US dollars (0 for no limit)"
+msgstr "Claude için aylık limit, ABD doları (limitsiz için 0)"
+
+msgid "Enter the monthly limit as a number of US dollars between 0 and {max}, for example 5."
+msgstr "Aylık limiti 0 ile {max} arasında bir ABD doları tutarı olarak girin, örneğin 5."
+
+msgid "Says this month's Claude usage and its estimated cost"
+msgstr "Bu ayki Claude kullanımını ve tahmini maliyetini söyler"

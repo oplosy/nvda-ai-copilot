@@ -79,8 +79,8 @@ GitHub, with:
 
 - Download URL: the `.nvda-addon` asset of the GitHub release (a stable release URL, not a
   workflow artifact).
-- Publisher: oplosy. Source URL: https://github.com/oplosy/nvda-ai-copilot. Licence: add one to the
-  repository first; the store asks for it.
+- Publisher: oplosy. Source URL: https://github.com/oplosy/nvda-ai-copilot. Licence: GPL-2.0
+  (`LICENSE`).
 - Channel: stable.
 
 The store scans the package with VirusTotal. The package contains python.org's signed embedded

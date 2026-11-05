@@ -2,7 +2,8 @@ name: Release
 
 # Push a tag like v0.3.0 (matching nvda-addon/manifest.ini and extension/manifest.json) to build the
 # NVDA add-on with the coordinator inside and the store zip of the extension, and attach both to a
-# GitHub release. Submitting to the Chrome Web Store, Edge Add-ons and the NVDA Add-on Store stays manual.
+# GitHub release. Submitting to the Chrome Web Store, Edge Add-ons,
+# addons.mozilla.org and the NVDA Add-on Store stays manual.
 
 on:
   push:
@@ -40,6 +41,7 @@ jobs:
       - run: coordinator/.venv/Scripts/python -m unittest discover -s nvda-addon -p "test_*.py"
       - run: npm ci
       - run: node --test "extension/*.test.js"
+      - run: coordinator/.venv/Scripts/python -m unittest discover -s scripts -p "test_*.py"
       - run: cd coordinator && .venv/Scripts/python build_dist.py
       - run: coordinator/.venv/Scripts/python nvda-addon/build.py
       - run: coordinator/.venv/Scripts/python scripts/build_extension.py
@@ -51,4 +53,5 @@ jobs:
           version="${TAG#v}"
           gh release create "$TAG" --verify-tag --generate-notes \
             "nvda-addon/dist/nvdaAiCopilot-$version.nvda-addon" \
-            "dist/nvda-ai-copilot-extension-$version.zip"
+            "dist/nvda-ai-copilot-extension-$version.zip" \
+            "dist/nvda-ai-copilot-extension-firefox-$version.zip"

@@ -1,22 +1,27 @@
 # Install (end users)
 
-You need Windows 10 or 11 (64-bit), NVDA 2024.1 or newer, Google Chrome or Microsoft Edge, and an
+You need Windows 10 or 11 (64-bit), NVDA 2024.1 or newer, Google Chrome, Microsoft Edge or Mozilla
+Firefox 128 or newer, and an
 Anthropic API key (or a local model, see below).
 
 1. **NVDA add-on:** download `nvdaAiCopilot-<version>.nvda-addon` from the
    [latest release](https://github.com/oplosy/nvda-ai-copilot/releases/latest) and open it. NVDA asks
    to install and restart. The add-on carries the coordinator (the local service that talks to the
    AI): on its first start it copies it to `%LOCALAPPDATA%\Programs\nvda-ai-copilot\<version>` and
-   registers it with Chrome and Edge. Nothing else to run, and the browsers can stay open.
+   registers it with Chrome, Edge and Firefox. Nothing else to run, and the browsers can stay open.
 2. **Browser extension:** install *NVDA AI Copilot* from the Chrome Web Store (Edge: Edge Add-ons).
    Until the store listing is live: download *Source code (zip)* from the same release, extract it,
    open `chrome://extensions` (Edge: `edge://extensions`), turn on Developer mode, choose *Load
    unpacked* and select the `extension` folder. Reload any tab that was open before.
+   Firefox: install *NVDA AI Copilot* from addons.mozilla.org. Until it is listed there, Firefox only
+   loads it for one session: download `nvda-ai-copilot-extension-firefox-<version>.zip` from the
+   release, open `about:debugging#/runtime/this-firefox`, choose *Load Temporary Add-on* and pick the
+   zip.
 3. **API key:** NVDA menu → Preferences → Settings → *NVDA AI Copilot*. Paste the key and press OK.
    It is encrypted for your Windows account and is never shown again; check *Kayıtlı anahtarı sil* to
    remove it.
 
-Shortcuts in Chrome browse mode: NVDA+Alt+Shift+E (explain element), P (summarize page),
+Shortcuts in Chrome, Edge or Firefox browse mode: NVDA+Alt+Shift+E (explain element), P (summarize page),
 F (find), R (form help), T (table help), C (what changed after my last click or key press),
 B (list of page parts; pick one to move there), Q (follow-up question about the last answer),
 D (chart help), G and N (guided task: start, next step), S (accessibility report for the site, on
@@ -48,7 +53,7 @@ browsers switch to it; the old folder is removed on a later NVDA start, once the
 of it.
 
 **Uninstall:** remove the add-on in NVDA's Add-on Store (this unregisters the coordinator and deletes
-its folder) and the extension in Chrome. The saved API key and logs stay in
+its folder) and the extension in the browser. The saved API key and logs stay in
 `%LOCALAPPDATA%\nvda-ai-copilot`; delete the key in the settings page first if you want it gone.
 
 **Coming from 0.2.0 (zip and install.bat):** just install the new add-on. It registers its own copy,

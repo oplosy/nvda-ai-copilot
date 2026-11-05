@@ -44,8 +44,27 @@ class InstallHostTest(unittest.TestCase):
 		manifest = json.loads(path.read_text(encoding="utf-8"))
 		self.assertEqual(manifest["path"], str(self.app / "run_host.bat"))
 		self.assertEqual(manifest["allowed_origins"], [f"chrome-extension://{i}/" for i in ids])
-		self.assertEqual(set(self.reg.values), set(install_host.REG_KEYS))
+		self.assertEqual(set(self.reg.values), {*install_host.REG_KEYS, install_host.FIREFOX_REG_KEY})
 		self.assertEqual(install_host.registered_manifest(), path)
+
+	def test_firefox_gets_its_own_manifest_with_the_gecko_id(self):
+		install_host.register(self.app)
+		path = Path(self.reg.values[install_host.FIREFOX_REG_KEY])
+		self.assertEqual(path, self.app / f"{install_host.HOST}.firefox.json")
+		manifest = json.loads(path.read_text(encoding="utf-8"))
+		self.assertEqual(manifest["name"], install_host.HOST)
+		self.assertEqual(manifest["path"], str(self.app / "run_host.bat"))
+		self.assertEqual(manifest["allowed_extensions"], [install_host.FIREFOX_ID])
+		self.assertNotIn("allowed_origins", manifest)
+
+	def test_an_install_without_firefox_counts_as_not_registered(self):
+		# 0.4.0 and earlier registered Chrome and Edge only; the add-on must register again.
+		install_host.register(self.app)
+		del self.reg.values[install_host.FIREFOX_REG_KEY]
+		self.assertIsNone(install_host.registered_manifest())
+		install_host.register(self.app)
+		self.reg.values[install_host.FIREFOX_REG_KEY] = "elsewhere.firefox.json"
+		self.assertIsNone(install_host.registered_manifest())
 
 	def test_register_rejects_bad_ids(self):
 		for ids in ((), ("not-an-id",), ("a" * 31,)):

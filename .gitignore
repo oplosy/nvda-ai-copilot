@@ -8,3 +8,4 @@ node_modules/
 coordinator/build/
 coordinator/dist/
 /dist/
+coordinator/com.nvda_ai_copilot.coordinator.firefox.json

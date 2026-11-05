@@ -52,11 +52,11 @@ msgstr "Copilot: aranıyor"
 msgid "Copilot: the answer timed out"
 msgstr "Copilot: yanıt zaman aşımına uğradı"
 
-msgid "Copilot: the focus is not in Chrome or Edge"
-msgstr "Copilot: odak Chrome veya Edge'de değil"
+msgid "Copilot: the focus is not in Chrome, Edge or Firefox"
+msgstr "Copilot: odak Chrome, Edge veya Firefox'ta değil"
 
-msgid "Copilot: the navigator object is not a web element in Chrome or Edge"
-msgstr "Copilot: navigator nesnesi Chrome veya Edge'de bir web öğesi değil"
+msgid "Copilot: the navigator object is not a web element in Chrome, Edge or Firefox"
+msgstr "Copilot: navigator nesnesi Chrome, Edge veya Firefox'ta bir web öğesi değil"
 
 msgid "Copilot: {id}, {tag}, matched by {method}"
 msgstr "Copilot: {id}, {tag}, {method} ile eşlendi"

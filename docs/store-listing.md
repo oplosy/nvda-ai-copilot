@@ -1,6 +1,6 @@
 # Store listings (draft)
 
-Texts and answers for the Chrome Web Store, Edge Add-ons and the NVDA Add-on Store. Upload
+Texts and answers for the Chrome Web Store, Edge Add-ons, addons.mozilla.org and the NVDA Add-on Store. Upload
 `dist/nvda-ai-copilot-extension-<version>.zip` and the `.nvda-addon` from the GitHub release.
 
 ## Chrome Web Store / Edge Add-ons
@@ -67,6 +67,10 @@ at least one 1280×800 screenshot and a 440×280 promo tile.
 **After approval:** add the store's extension ID to `EXTENSION_IDS` in
 `coordinator/install_host.py` and release a new add-on version, or the store build cannot reach the
 coordinator. Edge gives a different ID than Chrome; add both.
+
+**addons.mozilla.org:** upload `nvda-ai-copilot-extension-firefox-<version>.zip` with the same
+texts. The gecko ID `nvda-ai-copilot@oplosy` is fixed in the manifest, so no ID change is needed
+after approval. The code is not minified, so AMO needs no separate source upload.
 
 ## Privacy policy
 

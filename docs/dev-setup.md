@@ -1,6 +1,6 @@
 # Dev setup
 
-In Chrome browse mode:
+In Chrome, Edge or Firefox browse mode:
 
 - **NVDA+Alt+Shift+E**: explain the navigator object. The element is grounded first, then the
   coordinator sends its value-free DOM description and a masked screenshot crop to Claude
@@ -40,18 +40,26 @@ In Chrome browse mode:
   folder), or delete it if it was a saved one. Explain then speaks it as a saved AI comment without
   a model call. Elements are recognized by id, names, text, link, images and neighboring field
   names.
+- **NVDA+Alt+Shift+U**: this month's Claude requests and estimated cost, read by the add-on from
+  `usage.json` in the data folder (works with the browser closed).
 - **NVDA+Alt+Shift+L**: grounding only (debug). Speaks the extension element ID (`e_N`).
 
 Settings travel with every request from the add-on (NVDA settings → NVDA AI Copilot): send
 screenshots (off: the extension takes none), sites where Copilot is off (the coordinator refuses
-before anything reaches the model, follow-ups included) and NVDA's language, which the prompts
-answer in. Text answers stream: the coordinator sends finished sentences as `partial` lines and
-the add-on speaks them at once. Element explanations are cached for 30 minutes per element state.
+before anything reaches the model, follow-ups included), the model, the monthly limit and NVDA's
+language, which the prompts answer in. Text answers stream: the coordinator sends finished
+sentences as `partial` lines and the add-on speaks them at once. Element explanations are cached
+for 30 minutes per element state.
 The coordinator log has extension, first-sentence and total times for every request.
 
 AI model: Claude by default, or an OpenAI-compatible server on this computer (`LocalClient` in
 `coordinator/llm.py`; images as data URLs, JSON schema output, streamed answers). Only localhost
 addresses are accepted and a broken local setup fails instead of falling back to the cloud.
+
+Usage: after every Claude answer (refusals too, they are billed) `coordinator/usage.py` adds the
+tokens and the estimated cost from list prices to this month in `usage.json`; prices live in
+`PRICES` there. With a monthly limit set, `llm.client_for` refuses Claude (`limit_reached`) once
+the month's cost reaches it. Local models are not counted or limited.
 
 Same-origin iframes are read like the page; cross-origin frames are masked whole in screenshots.
 What-changed watches the top document only.
@@ -59,11 +67,12 @@ What-changed watches the top document only.
 All text sent to the model goes through `safeText()` in `extension/context.js`, which skips form
 fields and `contenteditable` regions, so typed text never leaves through `innerText`.
 
-The extension talks to the active tab of the last focused Chrome window. Any page load wakes the
-service worker and reconnects the coordinator if it was stopped.
+The extension talks to the active tab of the last focused browser window. Any page load wakes the
+background (Chrome/Edge: service worker; Firefox: event page) and reconnects the coordinator if it
+was stopped.
 
 Flow: NVDA add-on → 127.0.0.1 (token from session file) → coordinator → native messaging →
-extension service worker → content script of the active tab. If the bounding box is ambiguous,
+extension background → content script of the active tab. If the bounding box is ambiguous,
 the coordinator marks the candidates with `nvai-<nonce>-e_N` classes, the add-on polls the IA2
 `class` attribute and asks again with the nonce, and the markers are removed.
 
@@ -74,7 +83,8 @@ as untrusted data inside `<page_data>`.
 
 ## One-time setup
 
-1. Coordinator environment (Python 3.10+):
+1. Coordinator environment (Python 3.12.10 if you build release packages: the embedded Python they
+   ship has that version; 3.10+ is enough for running and testing):
 
    ```powershell
    cd coordinator; python -m venv .venv; .venv\Scripts\python -m pip install -r requirements.txt
@@ -116,9 +126,11 @@ as untrusted data inside `<page_data>`.
 
 ## Checks
 
-- Coordinator running: `%LOCALAPPDATA%\nvda-ai-copilot\session.json` exists while Chrome is open.
+- Coordinator running: `%LOCALAPPDATA%\nvda-ai-copilot\session.json` exists while the browser is
+  open.
 - Coordinator log: `%LOCALAPPDATA%\nvda-ai-copilot\coordinator.log` (`locate` and `explain` lines).
-- Extension errors: `chrome://extensions` → NVDA AI Copilot → *service worker* → Console.
+- Extension errors: `chrome://extensions` → NVDA AI Copilot → *service worker* → Console; Firefox:
+  `about:debugging#/runtime/this-firefox` → NVDA AI Copilot → *Inspect*.
 - NVDA log: lines starting with `nvdaAiCopilot:`.
 
 Bring back the NVDA log lines and the matching `coordinator.log` lines for each test case A–E in
@@ -139,7 +151,11 @@ npm install
 node --test "extension/*.test.js"
 ```
 
-CI (`.github/workflows/ci.yml`) runs these three and the eval's `--dry-run` on every pull request
+```powershell
+coordinator\.venv\Scripts\python -m unittest discover -s scripts -p "test_*.py"
+```
+
+CI (`.github/workflows/ci.yml`) runs these four and the eval's `--dry-run` on every pull request
 and push to main.
 
 Answer quality and speed (`eval/`): 13 inaccessible cases built by the real extension code in
@@ -168,8 +184,8 @@ Add-on translations: English source strings in `_()`, `nvda-addon/locale/<lang>/
 ## Release build
 
 Push a tag `v<version>` matching `nvda-addon/manifest.ini` and `extension/manifest.json`; the
-release workflow (`.github/workflows/release.yml`) runs the tests, builds both files below on
-Windows and attaches them to a GitHub release. By hand:
+release workflow (`.github/workflows/release.yml`) runs the tests, builds the three files below on
+Windows and attaches them to a GitHub release. Bump both versions in a pull request first. By hand:
 
 ```powershell
 cd coordinator; .venv\Scripts\python build_dist.py; cd ..
@@ -189,6 +205,10 @@ registration at it (`bundle.py`, `install_host.py`) and removes other versions o
 `scripts/build_extension.py` writes `dist/nvda-ai-copilot-extension-<version>.zip` for the Chrome Web
 Store and Edge Add-ons and `dist/nvda-ai-copilot-extension-firefox-<version>.zip` for
 addons.mozilla.org: only the files and manifest keys each browser loads, and no `key` (the Chrome
-stores assign their own ID; Firefox keeps the gecko ID). After the first submission, add each store's ID to `EXTENSION_IDS` in
-`coordinator/install_host.py`, or the store build cannot reach the coordinator. Store texts:
-`docs/store-listing.md`. End-user steps: `docs/install.md`.
+stores assign their own ID; Firefox keeps the gecko ID). After the first submission, add each
+Chrome store's ID to `EXTENSION_IDS` in `coordinator/install_host.py`, or the store build cannot
+reach the coordinator.
+
+Icons: `scripts/make_icons.py` draws `extension/icons/icon-*.png` and the store promo tile
+`docs/store/promo-440x280.png` with the standard library; run it again after changing the shapes.
+Store texts: `docs/store-listing.md`. End-user steps: `docs/install.md`.

@@ -8,7 +8,8 @@ It does not fix the site and it does not change how NVDA works. AI output only c
 for it, and it always starts with **"AI comment:"** (Turkish: **"AI yorumu:"**) so you can tell it
 apart from what the page itself says. Answers are in NVDA's language.
 
-> Status: 0.5.1, early.
+> Status: 0.5.1, early. Not yet in the browser stores or the NVDA Add-on Store: install from the
+> [latest release](https://github.com/oplosy/nvda-ai-copilot/releases/latest).
 
 ## What it can do
 
@@ -47,33 +48,45 @@ Full policy: [PRIVACY.md](PRIVACY.md).
   pixels.
 - In NVDA settings you can turn screenshots off (then none is taken) and list sites where Copilot
   sends nothing at all.
-- Choose the Claude model by cost: Haiku 5.5 (fastest, about 40 times cheaper), Sonnet 5.5 or
-  Opus 5.5 (most capable). NVDA+Alt+Shift+U says what this month cost so far (an estimate from
-  list prices), and you can set a monthly limit in US dollars: once it is reached, Copilot stops
-  calling Claude until the next month or until you raise it.
-- Or use a local model instead of Claude: any OpenAI-compatible server on this computer (Ollama,
-  LM Studio, llama.cpp) with a model that reads images. Only localhost addresses are accepted, and
-  a broken local setup is an error, never a silent switch to the cloud.
+- With a local model (see below) nothing leaves the computer. Only localhost addresses are
+  accepted, and a broken local setup is an error, never a silent switch to the cloud.
 - Card numbers that appear in page text are masked before anything leaves your computer.
 - Links are sent without their query string and fragment, which can carry tokens.
 - Page content is passed to the model as untrusted data, so text on the page cannot give it orders.
 - The API key is encrypted for your Windows account (DPAPI). Logs never contain AI answers or your
   questions.
 
+## Model and cost
+
+Claude calls are billed to your own Anthropic account. In NVDA settings you choose:
+
+- **Claude model:** Haiku 5.5 (fastest, about 40 times cheaper than Opus), Sonnet 5.5, or Opus 5.5
+  (most capable, the default).
+- **Monthly limit** in US dollars: NVDA+Alt+Shift+U and the settings page say what this month cost
+  so far (an estimate from list prices). Once the limit is reached, Copilot stops calling Claude
+  until the next month or until you raise it.
+- **Local model** instead of Claude: any OpenAI-compatible server on this computer (Ollama,
+  LM Studio, llama.cpp) with a model that reads images. Free, usually slower and less accurate.
+
 ## How it works
 
 ```
 NVDA add-on  ──localhost──▶  coordinator (Python)  ──native messaging──▶  browser extension
- shortcuts, speech            privacy filter, Claude,                      reads the DOM, masked
- settings                     what actions are allowed                     screenshot, moves focus
+ shortcuts, speech            privacy filter, AI model,                    reads the DOM, masked
+ settings, usage              what actions are allowed                     screenshot, moves focus
+                                     │
+                                     ▼
+                     Claude API, or a model server on this computer
 ```
 
-- `nvda-addon/`: NVDA global plugin: shortcuts, speech, settings panel.
-- `coordinator/`: local Python service: combines context, filters private data, calls Claude,
-  decides which actions are allowed.
+- `nvda-addon/`: NVDA global plugin: shortcuts, speech, settings panel. The release package also
+  carries the coordinator and registers it with the browsers.
+- `coordinator/`: local Python service: combines context, filters private data, calls the model,
+  counts usage, decides which actions are allowed.
 - `extension/`: Chrome/Edge/Firefox MV3 extension: DOM (same-origin frames included), ARIA, bounding
   boxes, masked screenshots, focus.
 - `eval/`: answer quality and speed check on deliberately inaccessible pages.
+- `scripts/`: extension store zips and icons.
 
 ## Install
 
@@ -88,10 +101,15 @@ the coordinator, and the browser extension. See [docs/install.md](docs/install.m
 Setup, release build and test commands: [docs/dev-setup.md](docs/dev-setup.md).
 
 ```powershell
-cd coordinator; .venv\Scripts\python -m unittest
+cd coordinator; .venv\Scripts\python -m unittest; cd ..
+coordinator\.venv\Scripts\python -m unittest discover -s nvda-addon -p "test_*.py"
+coordinator\.venv\Scripts\python -m unittest discover -s scripts -p "test_*.py"
 npm install; node --test "extension/*.test.js"
 coordinator\.venv\Scripts\python eval\run.py --dry-run   # without --dry-run it calls the API
 ```
+
+CI runs all of these on every pull request. A `v<version>` tag builds the release: the add-on with
+the coordinator inside, a Chrome/Edge zip and a Firefox zip.
 
 How NVDA's navigator object is matched to a DOM element: [docs/spike-dom-mapping.md](docs/spike-dom-mapping.md).
 

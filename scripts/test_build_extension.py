@@ -27,6 +27,12 @@ class ManifestTest(unittest.TestCase):
 		self.assertNotIn("key", m)
 		self.assertEqual(build_extension.loaded_files(m)[:2], ["context.js", "background.js"])
 
+	def test_both_zips_carry_the_icons(self):
+		for m in (build_extension.chrome_manifest(MANIFEST), build_extension.firefox_manifest(MANIFEST)):
+			files = build_extension.loaded_files(m)
+			self.assertIn("icons/icon-128.png", files)
+			self.assertTrue(all((build_extension.EXT / f).is_file() for f in files))
+
 	def test_gecko_id_is_the_one_the_native_host_allows(self):
 		self.assertEqual(MANIFEST["browser_specific_settings"]["gecko"]["id"], install_host.FIREFOX_ID)
 

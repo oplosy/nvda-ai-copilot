@@ -142,7 +142,7 @@ node --test "extension/*.test.js"
 CI (`.github/workflows/ci.yml`) runs these three and the eval's `--dry-run` on every pull request
 and push to main.
 
-Answer quality and speed (`eval/`): 11 inaccessible cases built by the real extension code in
+Answer quality and speed (`eval/`): 13 inaccessible cases built by the real extension code in
 jsdom (no screenshots), sent through the real coordinator. Without `--dry-run` it calls the API once
 per case; `--model` compares another model.
 

@@ -93,8 +93,14 @@ as untrusted data inside `<page_data>`.
    ```
 
    This writes `coordinator/com.nvda_ai_copilot.coordinator.json` and the key
-   `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.nvda_ai_copilot.coordinator`.
+   `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.nvda_ai_copilot.coordinator` (and the Edge
+   key), plus `com.nvda_ai_copilot.coordinator.firefox.json` and
+   `HKCU\Software\Mozilla\NativeMessagingHosts\com.nvda_ai_copilot.coordinator` for Firefox, which
+   allows the gecko ID `nvda-ai-copilot@oplosy` from the manifest.
 5. Reload the extension (or restart Chrome). Reload any tab that was open before the extension.
+   Firefox: `about:debugging#/runtime/this-firefox` → *Load Temporary Add-on* → `extension/manifest.json`.
+   The same manifest works in both: Chrome runs `background.service_worker`, Firefox (no extension
+   service workers) loads `background.scripts` as an event page.
 6. NVDA add-on: build the dev package (without the bundled coordinator, so your checkout stays
    registered) and open it; NVDA asks to install and restart.
 
@@ -175,13 +181,14 @@ coordinator\.venv\Scripts\python scripts\build_extension.py
 (SHA-256 pinned), the packages installed in the dev venv (`pip freeze`) and the coordinator.
 `nvda-addon/build.py` packs it into the add-on's `coordinator/` folder (and stops if a package path
 gets too long for NVDA to unpack). On each start the add-on copies it to
-`%LOCALAPPDATA%\Programs\nvda-ai-copilot\<version>` if missing, points the Chrome and Edge registration
-at it (`bundle.py`, `install_host.py`) and removes other versions once they are not in use;
+`%LOCALAPPDATA%\Programs\nvda-ai-copilot\<version>` if missing, points the Chrome, Edge and Firefox
+registration at it (`bundle.py`, `install_host.py`) and removes other versions once they are not in use;
 `installTasks.py` unregisters and deletes it when the add-on is removed. `run_host.bat` uses the dev
 `.venv` when it exists and the embedded Python otherwise.
 
 `scripts/build_extension.py` writes `dist/nvda-ai-copilot-extension-<version>.zip` for the Chrome Web
-Store and Edge Add-ons: only the files the manifest loads, and no `key` (the stores assign their own
-ID). After the first submission, add each store's ID to `EXTENSION_IDS` in
+Store and Edge Add-ons and `dist/nvda-ai-copilot-extension-firefox-<version>.zip` for
+addons.mozilla.org: only the files and manifest keys each browser loads, and no `key` (the Chrome
+stores assign their own ID; Firefox keeps the gecko ID). After the first submission, add each store's ID to `EXTENSION_IDS` in
 `coordinator/install_host.py`, or the store build cannot reach the coordinator. Store texts:
 `docs/store-listing.md`. End-user steps: `docs/install.md`.

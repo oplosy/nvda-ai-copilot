@@ -1,8 +1,8 @@
 # NVDA AI Copilot
 
 AI help for the parts of a web page that a screen reader cannot make sense of: unlabeled buttons,
-missing headings, silent page updates, confusing forms and tables. You press a shortcut in Chrome
-or Edge and NVDA speaks an answer from Claude, sentence by sentence as it is written.
+missing headings, silent page updates, confusing forms and tables. You press a shortcut in Chrome,
+Edge or Firefox and NVDA speaks an answer from Claude, sentence by sentence as it is written.
 
 It does not fix the site and it does not change how NVDA works. AI output only comes when you ask
 for it, and it always starts with **"AI comment:"** (Turkish: **"AI yorumu:"**) so you can tell it
@@ -12,7 +12,7 @@ apart from what the page itself says. Answers are in NVDA's language.
 
 ## What it can do
 
-In Chrome or Edge browse mode:
+In Chrome, Edge or Firefox browse mode:
 
 | Shortcut | Command | What you get |
 | --- | --- | --- |
@@ -69,13 +69,14 @@ NVDA add-on  ──localhost──▶  coordinator (Python)  ──native messag
 - `nvda-addon/`: NVDA global plugin: shortcuts, speech, settings panel.
 - `coordinator/`: local Python service: combines context, filters private data, calls Claude,
   decides which actions are allowed.
-- `extension/`: Chrome/Edge MV3 extension: DOM (same-origin frames included), ARIA, bounding
+- `extension/`: Chrome/Edge/Firefox MV3 extension: DOM (same-origin frames included), ARIA, bounding
   boxes, masked screenshots, focus.
 - `eval/`: answer quality and speed check on deliberately inaccessible pages.
 
 ## Install
 
-Needs Windows 10 or 11 (64-bit), NVDA 2024.1 or newer, Google Chrome or Microsoft Edge and an
+Needs Windows 10 or 11 (64-bit), NVDA 2024.1 or newer, Google Chrome, Microsoft Edge or
+Mozilla Firefox 128 or newer and an
 [Anthropic API key](https://console.anthropic.com/) (or a local model). Install the `.nvda-addon`
 from the [latest release](https://github.com/oplosy/nvda-ai-copilot/releases/latest), which carries
 the coordinator, and the browser extension. See [docs/install.md](docs/install.md).

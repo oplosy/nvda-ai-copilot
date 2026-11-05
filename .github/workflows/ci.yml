@@ -43,5 +43,7 @@ jobs:
       - run: npm ci
       - name: Extension tests
         run: node --test "extension/*.test.js"
+      - name: Build script tests
+        run: coordinator/.venv/Scripts/python -m unittest discover -s scripts -p "test_*.py"
       - name: Eval dry run (no API calls)
         run: coordinator/.venv/Scripts/python eval/run.py --dry-run

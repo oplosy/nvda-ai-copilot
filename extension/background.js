@@ -1,6 +1,7 @@
 // Relays coordinator requests (native messaging) to the content script of the active tab.
 
-importScripts('context.js');
+// Chrome runs this as a service worker; Firefox loads context.js before it from the manifest.
+if (typeof importScripts === 'function') importScripts('context.js');
 
 const HOST = 'com.nvda_ai_copilot.coordinator';
 const RECONNECT_MS = 5000;

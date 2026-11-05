@@ -43,8 +43,8 @@ MARKER_POLL_MS = 25
 MARKER_POLL_TRIES = 20
 # shortcut: fixed delay so the reason is spoken after NVDA announces the newly focused element; tune from testing.
 FOUND_SPEAK_DELAY_MS = 600
-# Chromium browsers the extension runs in.
-BROWSERS = ("chrome", "msedge")
+# Browsers the extension runs in (NVDA app module names).
+BROWSERS = ("chrome", "msedge", "firefox")
 
 CONF_SECTION = "nvdaAiCopilot"
 config.conf.spec[CONF_SECTION] = {
@@ -336,8 +336,8 @@ def _focusSection(elementId):
 def _webNavigator():
 	obj = api.getNavigatorObject()
 	if not isinstance(obj, IAccessible) or obj.appModule.appName not in BROWSERS:
-		# Translators: spoken when a command needs a web element in Chrome or Edge.
-		ui.message(_("Copilot: the navigator object is not a web element in Chrome or Edge"))
+		# Translators: spoken when a command needs a web element in Chrome, Edge or Firefox.
+		ui.message(_("Copilot: the navigator object is not a web element in Chrome, Edge or Firefox"))
 		return None
 	return obj
 
@@ -345,7 +345,7 @@ def _webNavigator():
 def _browserFocused():
 	if api.getFocusObject().appModule.appName in BROWSERS:
 		return True
-	ui.message(_("Copilot: the focus is not in Chrome or Edge"))
+	ui.message(_("Copilot: the focus is not in Chrome, Edge or Firefox"))
 	return False
 
 

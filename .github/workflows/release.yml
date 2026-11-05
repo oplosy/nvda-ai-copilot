@@ -19,7 +19,7 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           # build_dist.py ships python.org's embedded 3.12.10; the venv's binary wheels must match it.
           python-version: '3.12.10'

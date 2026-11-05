@@ -1,0 +1,47 @@
+name: CI
+
+# Runs the unit tests and the eval's dry run on every pull request and on pushes to main.
+# release.yml runs the same tests again before it builds a tagged release.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # The coordinator stores the API key with Windows DPAPI and the add-on targets Windows only.
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v7
+        with:
+          # Same version as the embedded Python that build_dist.py ships.
+          python-version: '3.12.10'
+          cache: pip
+          cache-dependency-path: coordinator/requirements.txt
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: python -m venv coordinator/.venv
+      - run: coordinator/.venv/Scripts/python -m pip install --quiet -r coordinator/requirements.txt
+      - name: Coordinator tests
+        run: cd coordinator && .venv/Scripts/python -m unittest
+      - name: Add-on tests
+        run: coordinator/.venv/Scripts/python -m unittest discover -s nvda-addon -p "test_*.py"
+      - run: npm ci
+      - name: Extension tests
+        run: node --test "extension/*.test.js"
+      - name: Eval dry run (no API calls)
+        run: coordinator/.venv/Scripts/python eval/run.py --dry-run

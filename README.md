@@ -98,3 +98,7 @@ How NVDA's navigator object is matched to a DOM element: [docs/spike-dom-mapping
 ## Not in scope
 
 Submitting forms, payments, autonomous multi-step tasks and CAPTCHA solving.
+
+## License
+
+GPL-2.0, like NVDA itself. See [LICENSE](LICENSE).

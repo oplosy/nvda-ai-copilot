@@ -255,6 +255,8 @@ TIMEOUT_S = 20
 
 _client = None
 _client_key = None
+# host.main() sets a usage.Usage; with None (tests, the eval) nothing is recorded or limited.
+usage_log = None
 NO_KEY_HINT = "NVDA menu > Preferences > Settings > NVDA AI Copilot (or ANTHROPIC_API_KEY)"
 
 
@@ -303,6 +305,9 @@ def local_url_ok(url):
 def client_for(settings):
 	"""The client the person chose in the NVDA settings. A local choice never falls back to the cloud."""
 	if settings.get("provider") != "local":
+		limit = settings.get("monthlyLimit") or 0
+		if limit and usage_log is not None and usage_log.month()["costUsd"] >= limit:
+			raise LLMError(f"the monthly limit of {limit:g} US dollars set in the NVDA settings is reached", "limit_reached")
 		return default_client()
 	if not local_url_ok(settings.get("localUrl") or "") or not settings.get("localModel"):
 		raise LLMError("the local model server address or model name is not set correctly", "local_invalid")
@@ -509,6 +514,17 @@ def _stream(client, request, on_sentence):
 		return stream.get_final_message()
 
 
+def _record_usage(request, response):
+	"""Claude responses carry usage; a local model's do not and cost nothing."""
+	used = getattr(response, "usage", None)
+	if usage_log is None or used is None:
+		return
+	try:
+		usage_log.record(getattr(response, "model", None) or request["model"], request["model"], used)
+	except OSError as e:
+		log.warning("usage could not be recorded: %s", e)  # the answer matters more than the count
+
+
 def _text(client, request, on_sentence=None):
 	try:
 		if on_sentence is None:
@@ -529,6 +545,7 @@ def _text(client, request, on_sentence=None):
 		# The SDK raises TypeError at request time when no credential source resolves.
 		log.warning("Claude request failed: %s", e)
 		raise LLMError(f"no Anthropic API key is set: {NO_KEY_HINT}", "key_missing") from None
+	_record_usage(request, response)  # before the refusal check: a refusal is billed too
 	if response.stop_reason == "refusal":
 		raise LLMError("the model declined to answer", "refusal")
 	text = " ".join(b.text for b in response.content if b.type == "text").strip()

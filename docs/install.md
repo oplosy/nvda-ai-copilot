@@ -20,7 +20,8 @@ Shortcuts in Chrome browse mode: NVDA+Alt+Shift+E (explain element), P (summariz
 F (find), R (form help), T (table help), C (what changed after my last click or key press),
 B (list of page parts; pick one to move there), Q (follow-up question about the last answer),
 D (chart help), G and N (guided task: start, next step), S (accessibility report for the site, on
-the clipboard), K (keep the last explanation for this site). AI
+the clipboard), K (keep the last explanation for this site), U (this month's Claude usage and
+estimated cost). AI
 output always starts with "AI comment:" ("AI yorumu:" in Turkish) and is in NVDA's language.
 Shortcuts can be changed in NVDA's Input gestures dialog, category NVDA AI Copilot.
 
@@ -30,6 +31,11 @@ screenshot is taken; list sites (for example your bank) where Copilot sends noth
 **Claude model** (same settings page): Haiku 5.5 is the fastest and about 40 times cheaper than
 Opus 5.5; Opus 5.5 is the most capable. A summary costs roughly 0.06 cents with Haiku and 2.5 cents
 with Opus, billed to your Anthropic account.
+
+**Monthly limit** (same settings page): a limit in US dollars for Claude per calendar month (0 means
+no limit). The page and NVDA+Alt+Shift+U show this month's requests and estimated cost, counted
+from Anthropic's list prices; your Anthropic console shows the exact bill. Once the limit is
+reached, Copilot no longer calls Claude and says so. A local model is never limited.
 
 **Local model** (optional, nothing leaves the computer): install an OpenAI-compatible server such as
 [Ollama](https://ollama.com/), pull a model that can read images, then in the same settings page

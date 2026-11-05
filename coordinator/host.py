@@ -23,6 +23,7 @@ from urllib.parse import urlsplit
 import llm
 import labels
 import native
+import usage
 from grounding import resolve
 from privacy import mask_cards, redact
 
@@ -30,6 +31,7 @@ DATA_DIR = Path(os.environ["LOCALAPPDATA"]) / "nvda-ai-copilot"
 # shortcut: one session file per user, so the last started Chrome profile wins; key by profile if needed.
 SESSION_FILE = DATA_DIR / "session.json"
 LABELS_FILE = DATA_DIR / "labels.json"
+USAGE_FILE = DATA_DIR / "usage.json"  # the NVDA add-on reads it to speak this month's usage
 EXTENSION_TIMEOUT_S = 3
 CLIENT_TIMEOUT_S = 5
 MAX_REQUEST_BYTES = 64 * 1024
@@ -47,6 +49,7 @@ MAX_BLOCKED_SITES = 200
 SITE = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)*")
 LANGUAGE_CODE = re.compile(r"[A-Za-z]{2,3}([_-][A-Za-z0-9]{2,8})?")
 MODEL_NAME = re.compile(r"[\w.:/@+-]{1,100}")
+MAX_MONTHLY_LIMIT = 10_000
 
 log = logging.getLogger("coordinator")
 
@@ -82,7 +85,13 @@ def parse_settings(raw):
 		"model": raw.get("model") if raw.get("model") in llm.MODELS else llm.MODEL,
 		"localUrl": url if isinstance(url, str) and len(url) <= 200 else "",
 		"localModel": model if isinstance(model, str) and MODEL_NAME.fullmatch(model) else "",
+		# US dollars per calendar month for Claude; 0 means no limit.
+		"monthlyLimit": limit if _valid_limit(limit := raw.get("monthlyLimit")) else 0,
 	}
+
+
+def _valid_limit(value):
+	return isinstance(value, (int, float)) and not isinstance(value, bool) and 0 <= value <= MAX_MONTHLY_LIMIT
 
 
 def is_blocked(origin, sites):
@@ -474,6 +483,7 @@ def main():
 		level=logging.INFO,
 		format="%(asctime)s %(levelname)s %(message)s",
 	)
+	llm.usage_log = usage.Usage(USAGE_FILE)
 	ext = Extension(sys.stdout.buffer)
 	server = socketserver.TCPServer(("127.0.0.1", 0), Handler)
 	server.token = secrets.token_hex(32)

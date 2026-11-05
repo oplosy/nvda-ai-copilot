@@ -7,6 +7,7 @@ import os
 import re
 import socket
 import threading
+from pathlib import Path
 from urllib.parse import urlsplit
 
 import addonHandler
@@ -27,10 +28,14 @@ from scriptHandler import script
 from . import bundle
 from . import install_host  # copied from coordinator/install_host.py by build.py
 from . import secret  # copied from coordinator/secret.py by build.py
+from . import usage  # copied from coordinator/usage.py by build.py
 
 addonHandler.initTranslation()
 
-SESSION_FILE = os.path.join(os.environ["LOCALAPPDATA"], "nvda-ai-copilot", "session.json")
+DATA_DIR = os.path.join(os.environ["LOCALAPPDATA"], "nvda-ai-copilot")
+SESSION_FILE = os.path.join(DATA_DIR, "session.json")
+USAGE_FILE = os.path.join(DATA_DIR, "usage.json")  # written by the coordinator after each Claude answer
+MAX_MONTHLY_LIMIT = 10000  # same as the coordinator's host.MAX_MONTHLY_LIMIT
 REQUEST_TIMEOUT_S = 5
 EXPLAIN_TIMEOUT_S = 45  # covers the model call (coordinator: 20 s timeout, one retry, ~41 s worst case)
 # The class attribute showed up 15-31 ms after the DOM change in Chrome 155; poll fast, give up after 0.5 s.
@@ -49,6 +54,7 @@ config.conf.spec[CONF_SECTION] = {
 	"model": "string(default='claude-opus-5-5')",  # one of MODELS
 	"localUrl": "string(default='http://127.0.0.1:11434/v1')",  # Ollama's OpenAI-compatible address
 	"localModel": "string(default='')",
+	"monthlyLimit": "float(default=0.0)",  # US dollars per calendar month for Claude; 0 = no limit
 }
 PROVIDERS = ("claude", "local")
 # Same list and order as the coordinator's llm.MODELS: cheapest and fastest first.
@@ -82,6 +88,7 @@ def _settings():
 		"model": conf["model"],
 		"localUrl": conf["localUrl"],
 		"localModel": conf["localModel"],
+		"monthlyLimit": float(conf["monthlyLimit"]),
 	}
 
 
@@ -179,6 +186,7 @@ def _messages():
 		"key_missing": _("No Anthropic API key is set. Enter it in NVDA settings, NVDA AI Copilot category"),
 		"key_invalid": _("The Anthropic API key is invalid. Check it in NVDA settings, NVDA AI Copilot category"),
 		"key_unreadable": _("The saved API key could not be read. Enter it again in NVDA settings"),
+		"limit_reached": _("This month's spending limit for Claude is reached. You can raise it in NVDA settings, NVDA AI Copilot category"),
 		"rate_limit": _("The AI service is busy. Try again shortly"),
 		"connection": _("Cannot reach the AI service. Check the internet connection"),
 		"refusal": _("The AI declined to answer"),
@@ -341,6 +349,34 @@ def _browserFocused():
 	return False
 
 
+def _usageSummary():
+	"""This month's Claude usage as one sentence; read from the coordinator's file, so it works with the browser closed."""
+	try:
+		month = usage.Usage(Path(USAGE_FILE)).month()
+	except OSError as e:
+		log.warning(f"nvdaAiCopilot: usage file could not be read: {e}")
+		month = {"requests": 0, "costUsd": 0}
+	# Translators: this month's Claude usage; cost is an estimate in US dollars, for example 0.42.
+	text = _("This month: {requests} Claude requests, about {cost} US dollars").format(
+		requests=month["requests"], cost=f"{month['costUsd']:.2f}"
+	)
+	limit = float(config.conf[CONF_SECTION]["monthlyLimit"])
+	if limit > 0:
+		# Translators: added after this month's usage when a monthly limit is set.
+		text += ". " + _("Limit: {limit} US dollars").format(limit=f"{limit:g}")
+	return text
+
+
+def _parseLimit(value):
+	"""'5', '2,5' or '2.5' -> dollars, '' -> 0 (no limit); None if it is not a valid amount."""
+	value = value.strip().replace(",", ".") or "0"
+	try:
+		limit = float(value)
+	except ValueError:
+		return None
+	return limit if 0 <= limit <= MAX_MONTHLY_LIMIT else None
+
+
 SITE = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)*")
 
 
@@ -406,6 +442,11 @@ class CopilotSettingsPanel(settingsDialogs.SettingsPanel):
 			],
 		)
 		self.modelChoice.SetSelection(MODELS.index(conf["model"]) if conf["model"] in MODELS else len(MODELS) - 1)
+		# Translators: label of the monthly spending limit field.
+		self.limitEdit = helper.addLabeledControl(_("Monthly limit for Claude in US dollars (0 for no limit)"), wx.TextCtrl)
+		self.limitEdit.SetValue(f"{float(conf['monthlyLimit']):g}")
+		# A read-only field, so the screen reader reaches it with Tab like the other settings.
+		self.usageText = helper.addItem(wx.TextCtrl(self, value=_usageSummary(), style=wx.TE_READONLY))
 		# Translators: label of the local model server address field.
 		self.localUrlEdit = helper.addLabeledControl(_("Local server address (OpenAI-compatible, for example Ollama)"), wx.TextCtrl)
 		self.localUrlEdit.SetValue(conf["localUrl"])
@@ -428,6 +469,10 @@ class CopilotSettingsPanel(settingsDialogs.SettingsPanel):
 			# Translators: error when the local model settings are incomplete or not local.
 			gui.messageBox(_("Enter a local model name and a server address on this computer (localhost or 127.0.0.1)."), "NVDA AI Copilot", wx.OK | wx.ICON_ERROR, self)
 			return False
+		if _parseLimit(self.limitEdit.GetValue()) is None:
+			# Translators: error when the monthly limit is not a number in the allowed range.
+			gui.messageBox(_("Enter the monthly limit as a number of US dollars between 0 and {max}, for example 5.").format(max=MAX_MONTHLY_LIMIT), "NVDA AI Copilot", wx.OK | wx.ICON_ERROR, self)
+			return False
 		bad = [s for s in self._siteEntries() if not _siteHost(s)]
 		if bad:
 			# Translators: error listing site entries that are not host names.
@@ -443,6 +488,7 @@ class CopilotSettingsPanel(settingsDialogs.SettingsPanel):
 		conf["model"] = MODELS[self.modelChoice.GetSelection()]
 		conf["localUrl"] = self.localUrlEdit.GetValue().strip()
 		conf["localModel"] = self.localModelEdit.GetValue().strip()
+		conf["monthlyLimit"] = _parseLimit(self.limitEdit.GetValue())
 		key = self.keyEdit.GetValue().strip()
 		try:
 			if key:
@@ -580,6 +626,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			_("What do you want to ask about the last AI answer?"),
 			lambda question: _askModel({"type": "followup", "query": question}),
 		)
+
+	# Translators: input gesture description.
+	@script(description=_("Says this month's Claude usage and its estimated cost"), gesture="kb:NVDA+alt+shift+u")
+	def script_usage(self, gesture):
+		ui.message(_usageSummary())
 
 	# Translators: input gesture description.
 	@script(description=_("Locates the navigator object in the page (for troubleshooting)"), gesture="kb:NVDA+alt+shift+l")

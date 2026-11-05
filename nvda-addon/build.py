@@ -23,6 +23,8 @@ FILES = {
 	# One key store and one host registration for the add-on and the coordinator.
 	"globalPlugins/nvdaAiCopilot/secret.py": HERE.parent / "coordinator" / "secret.py",
 	"globalPlugins/nvdaAiCopilot/install_host.py": HERE.parent / "coordinator" / "install_host.py",
+	# The add-on reads the coordinator's usage file to speak this month's usage.
+	"globalPlugins/nvdaAiCopilot/usage.py": HERE.parent / "coordinator" / "usage.py",
 	"doc/en/readme.html": HERE / "doc" / "en" / "readme.html",
 }
 # Written by coordinator/build_dist.py; the add-on installs it from its "coordinator" folder.

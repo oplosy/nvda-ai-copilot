@@ -8,7 +8,7 @@ It does not fix the site and it does not change how NVDA works. AI output only c
 for it, and it always starts with **"AI comment:"** (Turkish: **"AI yorumu:"**) so you can tell it
 apart from what the page itself says. Answers are in NVDA's language.
 
-> Status: 0.4.0, early.
+> Status: 0.5.0, early.
 
 ## What it can do
 

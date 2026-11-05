@@ -1,7 +1,8 @@
 # Store listings (draft)
 
-Texts and answers for the Chrome Web Store, Edge Add-ons, addons.mozilla.org and the NVDA Add-on Store. Upload
-`dist/nvda-ai-copilot-extension-<version>.zip` and the `.nvda-addon` from the GitHub release.
+Texts and answers for the Chrome Web Store, Edge Add-ons, addons.mozilla.org and the NVDA Add-on
+Store. Upload the files from the GitHub release: `nvda-ai-copilot-extension-<version>.zip` (Chrome,
+Edge), `nvda-ai-copilot-extension-firefox-<version>.zip` (Firefox) and the `.nvda-addon`.
 
 ## Chrome Web Store / Edge Add-ons
 

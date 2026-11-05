@@ -1,5 +1,8 @@
 # Spike: mapping the NVDA navigator object to a Chrome DOM element
 
+> Measured on Chrome. Firefox support (0.5.0) uses the same method and passed a
+> manual test with NVDA, but the cases below were not measured on Firefox one by one.
+
 Goal: when the user presses the copilot shortcut in browse mode, the coordinator must know
 *which DOM element* the NVDA navigator object is, so the extension can describe it and the LLM
 can only pick among extension-issued element IDs.

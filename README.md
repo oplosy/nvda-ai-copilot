@@ -40,6 +40,8 @@ and it warns before steps that pay, order, submit, send or delete.
 
 ## Privacy
 
+Full policy: [PRIVACY.md](PRIVACY.md).
+
 - Field values are never read. Password, one-time code and card fields, cross-origin frames such
   as payment forms, and text typed into editable regions never reach the model, as text or as
   pixels.

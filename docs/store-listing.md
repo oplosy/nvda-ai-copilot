@@ -58,11 +58,11 @@ description of the current page so it can explain inaccessible elements and move
 - Certify: not sold to third parties; not used or transferred for purposes unrelated to the single
   purpose; not used to determine creditworthiness or for lending.
 
-**Privacy policy URL:** publish the section below (for example as `PRIVACY.md` in the repository)
-and link it.
+**Privacy policy URL:** https://github.com/oplosy/nvda-ai-copilot/blob/main/PRIVACY.md
 
-**Assets still needed:** a 128×128 icon (also add it to `extension/manifest.json` under `icons`),
-at least one 1280×800 screenshot and a 440×280 promo tile.
+**Images:** icons in `extension/icons/` (16, 32, 48, 128 px, drawn by `scripts/make_icons.py`),
+promo tile `docs/store/promo-440x280.png`. Still needed: at least one 1280×800 screenshot of a real
+page (for example the browser next to NVDA's speech viewer showing an "AI comment:" answer).
 
 **After approval:** add the store's extension ID to `EXTENSION_IDS` in
 `coordinator/install_host.py` and release a new add-on version, or the store build cannot reach the
@@ -71,23 +71,6 @@ coordinator. Edge gives a different ID than Chrome; add both.
 **addons.mozilla.org:** upload `nvda-ai-copilot-extension-firefox-<version>.zip` with the same
 texts. The gecko ID `nvda-ai-copilot@oplosy` is fixed in the manifest, so no ID change is needed
 after approval. The code is not minified, so AMO needs no separate source upload.
-
-## Privacy policy
-
-NVDA AI Copilot (the NVDA add-on, its local coordinator and the browser extension) has no server
-of its own and the developer receives no data.
-
-When you press a shortcut, page structure and, unless you turned it off, a masked screenshot of the
-current tab are sent from your computer to the AI provider you selected: Anthropic (Claude API),
-under Anthropic's own terms and privacy policy, using your own API key; or a model server on your
-own computer, in which case nothing leaves the computer. Field values, password, one-time code and
-card fields, cross-origin frames and text typed into editable regions are never sent. Card numbers in
-page text are masked, and links are sent without query strings and fragments.
-
-On your computer the add-on stores your API key encrypted for your Windows account, explanations
-you chose to keep for a site, and logs that do not contain AI answers or your questions, all in
-`%LOCALAPPDATA%\nvda-ai-copilot`. Removing the add-on does not delete them; delete the key in the
-settings page and the folder by hand.
 
 ## NVDA Add-on Store
 
